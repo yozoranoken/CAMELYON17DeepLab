@@ -1,15 +1,17 @@
 #! /usr/bin/env python3
 from argparse import ArgumentParser
-from pathlib import Path
-from xml.etree import ElementTree as ET
 from collections import namedtuple
+from enum import IntEnum
+from pathlib import Path
 from random import randint
+from xml.etree import ElementTree as ET
 
 from matplotlib import pyplot as plt
 import numpy as np
 import openslide
 from PIL import Image
 from PIL import ImageDraw
+import pyclipper
 from skimage import img_as_ubyte
 from skimage import morphology
 from skimage.color import rgb2hsv
@@ -61,54 +63,73 @@ parser.add_argument(
 )
 
 
+class LabelClass(IntEnum):
+    normal = 0
+    metastases = 1
+
 
 DOWNSAMPLING_LEVEL = 5
 SMALL_OBJECT_AREA = 512
 SMALL_HOLE_AREA = 196
+PATCH_SIDE = 2048
+PATCH_DIM = (PATCH_SIDE, PATCH_SIDE)
+METASTASES_PROBABILITY = 70
+TUMOR_EXTRACTION_COUNT = 1000
+NORMAL_EXTRACTION_COUNT = 600
+TUMOR_LABEL_COLOR = (255, 182, 0)
 class WSIData:
     GROUP_METASTASES = 'metastases'
     GROUP_NORMAL = 'normal'
 
     def __init__(self, tif_path, label_path):
         self._tif_path = tif_path
-        self._label_path = label_path
+        self._label_path = label_path if label_path.is_file() else None
 
+        self._slide = openslide.OpenSlide(str(self._tif_path))
         self._roi = None
         self._metastases_mask = None
         self._normal_mask = None
         self._read_polygon()
 
     def _read_polygon(self):
-        tree = ET.parse(str(self._label_path))
-        root = tree.getroot()
-
         normal = []
         metastases = []
-        annotations = root[0]
-        for annotation in annotations:
-            polygon = []
-            coordinates = annotation[0]
-            for coord in coordinates:
-                cx = float(coord.attrib['X'])
-                cy = float(coord.attrib['Y'])
-                polygon.append((cx, cy))
 
-            if (annotation.attrib['PartOfGroup'] ==
-                    self.__class__.GROUP_METASTASES):
-                metastases.append(polygon)
-            elif (annotation.attrib['PartOfGroup'] ==
-                    self.__class__.GROUP_NORMAL):
-                normal.append(polygon)
+        if self._label_path is not None:
+            tree = ET.parse(str(self._label_path))
+            root = tree.getroot()
+
+            annotations = root[0]
+            for annotation in annotations:
+                polygon = []
+                coordinates = annotation[0]
+                for coord in coordinates:
+                    cx = round(float(coord.attrib['X']))
+                    cy = round(float(coord.attrib['Y']))
+                    polygon.append((cx, cy))
+
+                if (annotation.attrib['PartOfGroup'] ==
+                        self.__class__.GROUP_METASTASES):
+                    metastases.append(polygon)
+                elif (annotation.attrib['PartOfGroup'] ==
+                        self.__class__.GROUP_NORMAL):
+                    normal.append(polygon)
 
         self._metastases_label = metastases
         self._normal_label = normal
-        self._slide = openslide.OpenSlide(str(self._tif_path))
 
     @property
     def tif_path(self):
         return self._tif_path
 
+    @property
+    def label_path(self):
+        return self._label_path
+
     def _downsample_label_coords(self, labels, level):
+        if not labels:
+            return []
+
         ds = self._slide.level_downsamples[level]
         round10s = lambda t: (round(t[0] / ds), round(t[1] / ds))
         return [[round10s(cell) for cell in r]
@@ -127,13 +148,13 @@ class WSIData:
         mask = Image.new('RGB', dim)
         label_draw = ImageDraw.Draw(mask, 'RGB')
 
+
         for annotation in pos:
-            label_draw.polygon(annotation, fill=(255, 255, 255))
+            label_draw.polygon(annotation, fill='white')
 
-        for annotation in neg:
-            label_draw.polygon(annotation, fill=(0, 0, 0))
-
-        del label_draw
+        if neg:
+            for annotation in neg:
+                label_draw.polygon(annotation, fill=(0, 0, 0))
 
         return mask
 
@@ -160,6 +181,68 @@ class WSIData:
         # axarr[1].imshow(normal)
         # plt.show()
         return self._normal_mask
+
+    def _make_coordinates_relative(self, src_pt, regions):
+        return [[(x - src_pt[0], y - src_pt[1]) for x, y in region]
+                for region in regions]
+
+    def _clip_patch(self, subject, patch_coord, patch_dim):
+        w, h = patch_dim
+        clipper = (
+            (0, 0),
+            (w, 0),
+            (w, h),
+            (0, h),
+        )
+
+        subject_relative = self._make_coordinates_relative(
+            patch_coord,
+            subject,
+        )
+
+        pc = pyclipper.Pyclipper()
+        pc.AddPath(clipper, pyclipper.PT_CLIP, True)
+        pc.AddPaths(subject_relative, pyclipper.PT_SUBJECT, True)
+
+        solution = pc.Execute(
+            pyclipper.CT_INTERSECTION,
+            pyclipper.PFT_EVENODD,
+            pyclipper.PFT_EVENODD,
+        )
+
+        solution = [[tuple(c) for c in s] for s in solution]
+        return solution
+
+
+    def read_region(self, ds_coord, ds_level=DOWNSAMPLING_LEVEL):
+        ds_factor = round(self._slide.level_downsamples[ds_level])
+        w, h = self._slide.dimensions
+        pad = PATCH_SIDE // 2
+        cx, cy = ds_coord
+        cx = (cx * ds_factor) - pad + randint(0, ds_factor)
+        cy = (cy * ds_factor) - pad + randint(0, ds_factor)
+        cx = max(pad, min(cx, w - pad))
+        cy = max(pad, min(cy, h - pad))
+
+        region = self._slide.read_region((cx, cy), 0, PATCH_DIM)
+
+        patch_meta = []
+        patch_norm = []
+        if self._metastases_label:
+            patch_meta = self._clip_patch(
+                self._metastases_label,
+                (cx, cy),
+                PATCH_DIM,
+            )
+
+            if self._normal_label:
+                patch_norm = self._clip_patch(
+                    self._normal_label,
+                    (cx, cy),
+                    PATCH_DIM,
+                )
+        label = self._coords2mask(PATCH_DIM, patch_meta, patch_norm)
+        return region, label
 
     @property
     def roi(self):
@@ -220,6 +303,7 @@ def main(args):
     with open(str(args.data_dir_path / args.list_file_path)) as list_file:
         tif_dir_path = args.data_dir_path / args.tif_dir_name
         label_dir_path = args.data_dir_path / args.label_dir_name
+
         for wsi_filename in list_file:
             data = WSIData(
                 tif_path=(tif_dir_path / (wsi_filename.strip() + '.tif')),
@@ -228,11 +312,46 @@ def main(args):
             wsi_data.append(data)
 
     for data in wsi_data:
-        # Get ROI pixels from TIF on low resolution
-        # Subtract Tumor Label from Tissue mask
+        ## Get ROI pixels from TIF on low resolution
+        ## Subtract Tumor Label from Tissue mask
         # Store ROI pixels and tumor pixels
         normal_points = get_true_points_2D(data.get_normal_mask())
-        metastases_points = get_true_points_2D(data.get_metastases_mask())
+        if data.label_path is not None:
+            metastases_points = get_true_points_2D(data.get_metastases_mask())
+
+            for i in range(TUMOR_EXTRACTION_COUNT):
+                if randint(0, 100) <= TUMOR_EXTRACTION_COUNT:
+                    point_list = metastases_points
+                else:
+                    point_list = normal_points
+
+                region, label = data.read_region(
+                    point_list[randint(0, len(point_list) - 1)])
+
+                # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
+                # axarr[0].imshow(region)
+                # axarr[1].imshow(label)
+                # plt.show()
+
+                break
+        else:
+            for i in range(NORMAL_EXTRACTION_COUNT):
+                print(normal_points)
+                break
+
+
+
+
+
+
+
+        # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
+        # axarr[0].imshow(region)
+        # axarr[1].imshow(label)
+        # plt.show()
+
+        # 50:50 select a class to extract a patch from
+        # label_class = randint(0, 1)
 
         break
 
@@ -242,7 +361,6 @@ def main(args):
 
 
 
-    # 50:50 select a class to extract a patch from
     # Get size coordinates of extracted patch and clip
     #   to tumor label: Patch label generation
     # Save patch and label
