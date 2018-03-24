@@ -94,9 +94,9 @@ SMALL_OBJECT_AREA = 512
 SMALL_HOLE_AREA = 196
 PATCH_SIDE = 2048
 PATCH_DIM = (PATCH_SIDE, PATCH_SIDE)
-METASTASES_PROBABILITY = 50
-TUMOR_EXTRACTION_COUNT = 1000
-NORMAL_EXTRACTION_COUNT = 600
+METASTASES_PROBABILITY = 70
+TUMOR_EXTRACTION_COUNT = 100
+NORMAL_EXTRACTION_COUNT = 180
 TUMOR_LABEL_COLOR = (255, 182, 0)
 
 CENTRE_SAMPLES = (
@@ -346,7 +346,6 @@ def color_augment(pil_img):
 
 def main(args):
     print('> Running patch extraction')
-    print()
 
     wsi_data = []
 
@@ -390,8 +389,9 @@ def main(args):
         ## Get ROI pixels from TIF on low resolution
         ## Subtract Tumor Label from Tissue mask
         # Store ROI pixels and tumor pixels
-        normal_points = get_true_points_2D(data.get_normal_mask())
         print('  > Extracting patches from', data.name)
+        print('    > Building ROIs')
+        normal_points = get_true_points_2D(data.get_normal_mask())
         metastases_points = get_true_points_2D(data.get_metastases_mask())
 
         is_tumor = data.label_path is not None
@@ -440,7 +440,7 @@ def main(args):
                 annot = centre_stem + '.png'
                 region.save(str(output_jpegs / patch), 'JPEG')
                 label.save(str(output_annot / annot), 'PNG')
-            print('      > Finished patch {}')
+            print('      > Finished patch {}'.format(i))
 
             patch_count += 1
 
