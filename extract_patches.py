@@ -1,9 +1,11 @@
 #! /usr/bin/env python3
 from argparse import ArgumentParser
 from collections import namedtuple
+import csv
 from enum import IntEnum
 from pathlib import Path
 from random import randint
+from uuid import uuid4
 from xml.etree import ElementTree as ET
 
 from matplotlib import pyplot as plt
@@ -17,42 +19,61 @@ from skimage import morphology
 from skimage.color import rgb2hsv
 from skimage.filters import threshold_otsu
 
+import stain_utils as utils
+import stainNorm_Vahadane
+
 
 parser = ArgumentParser(
     description='Extract patches from the WSI tiff images.'
 )
 
 parser.add_argument(
-    '--data-dir-path',
-    help='Path to the directory containing the data folders.',
+    '--data-list-file',
+    help='Path to the file containing paths to the WSIs and their Labels',
     required=True,
     type=Path,
-    metavar='DATA_DIR_PATH',
+    metavar='DATA_LIST_FILE_PATH',
 )
 
 parser.add_argument(
-    '--list-file-path',
-    help='Path to the list file containing the filenames of the WSIs.',
-    required=True,
-    type=Path,
-    metavar='LIST_FILE_PATH',
-)
-
-parser.add_argument(
-    '--tif-dir-name',
-    help='Name of the directory containing the WSI tiffs.',
-    required=True,
+    '--output-dir-name',
+    help='Name of the directory to store subdirectories of output.',
     type=str,
-    metavar='TIF_DIR_NAME',
+    metavar='OUTPUT_DIR_NAME',
+    default='Patches',
 )
 
-parser.add_argument(
-    '--label-dir-name',
-    help='Name of the directory containing the labels.',
-    required=True,
-    type=str,
-    metavar='LABEL_DIR_NAME',
-)
+# parser.add_argument(
+#     '--data-dir-path',
+#     help='Path to the directory containing the data folders.',
+#     required=True,
+#     type=Path,
+#     metavar='DATA_DIR_PATH',
+# )
+
+# parser.add_argument(
+#     '--list-file-path',
+#     help='Path to the list file containing the filenames of the WSIs.',
+#     required=True,
+#     type=Path,
+#     metavar='LIST_FILE_PATH',
+# )
+
+# parser.add_argument(
+#     '--tif-dir-name',
+#     help='Name of the directory containing the WSI tiffs.',
+#     required=True,
+#     type=str,
+#     metavar='TIF_DIR_NAME',
+# )
+
+# parser.add_argument(
+#     '--label-dir-name',
+#     help='Name of the directory containing the labels.',
+#     required=True,
+#     type=str,
+#     metavar='LABEL_DIR_NAME',
+# )
 
 parser.add_argument(
     '--output-path',
@@ -73,17 +94,30 @@ SMALL_OBJECT_AREA = 512
 SMALL_HOLE_AREA = 196
 PATCH_SIDE = 2048
 PATCH_DIM = (PATCH_SIDE, PATCH_SIDE)
-METASTASES_PROBABILITY = 70
+METASTASES_PROBABILITY = 50
 TUMOR_EXTRACTION_COUNT = 1000
 NORMAL_EXTRACTION_COUNT = 600
 TUMOR_LABEL_COLOR = (255, 182, 0)
-class WSIData:
-    GROUP_METASTASES = 'metastases'
-    GROUP_NORMAL = 'normal'
 
-    def __init__(self, tif_path, label_path):
+CENTRE_SAMPLES = (
+    utils.read_image('./sampled_tiles_from_centers/centre_0_patient_006_node_1.jpeg'),
+    utils.read_image('./sampled_tiles_from_centers/centre_1_patient_024_node_2.jpeg'),
+    utils.read_image('./sampled_tiles_from_centers/centre_2_patient_056_node_1.jpeg'),
+    utils.read_image('./sampled_tiles_from_centers/centre_3_patient_066_node_1.jpeg'),
+    utils.read_image('./sampled_tiles_from_centers/centre_4_patient_097_node_3.jpeg'),
+)
+
+class WSIData:
+    GROUP_METASTASES = ('metastases', '_0', '_1')
+    GROUP_NORMAL = ('normal', '_2')
+
+    def __init__(self, wsi_name, tif_path, label_path):
+        self._name = wsi_name
         self._tif_path = tif_path
-        self._label_path = label_path if label_path.is_file() else None
+        self._label_path = label_path or None
+        if self._label_path is not None:
+            if not self._label_path.is_file():
+                raise IOError('File does not exist.')
 
         self._slide = openslide.OpenSlide(str(self._tif_path))
         self._roi = None
@@ -108,15 +142,19 @@ class WSIData:
                     cy = round(float(coord.attrib['Y']))
                     polygon.append((cx, cy))
 
-                if (annotation.attrib['PartOfGroup'] ==
+                if (annotation.attrib['PartOfGroup'] in
                         self.__class__.GROUP_METASTASES):
                     metastases.append(polygon)
-                elif (annotation.attrib['PartOfGroup'] ==
+                elif (annotation.attrib['PartOfGroup'] in
                         self.__class__.GROUP_NORMAL):
                     normal.append(polygon)
 
         self._metastases_label = metastases
         self._normal_label = normal
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def tif_path(self):
@@ -178,7 +216,7 @@ class WSIData:
 
         # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
         # axarr[0].imshow(roi)
-        # axarr[1].imshow(normal)
+        # axarr[1].imshow(self._normal_mask)
         # plt.show()
         return self._normal_mask
 
@@ -219,12 +257,12 @@ class WSIData:
         w, h = self._slide.dimensions
         pad = PATCH_SIDE // 2
         cx, cy = ds_coord
-        cx = (cx * ds_factor) - pad + randint(0, ds_factor)
-        cy = (cy * ds_factor) - pad + randint(0, ds_factor)
+        cx = (cx * ds_factor) + pad * randint(-1, 1) + randint(0, ds_factor)
+        cy = (cy * ds_factor) + pad * randint(-1, 1) + randint(0, ds_factor)
         cx = max(pad, min(cx, w - pad))
         cy = max(pad, min(cy, h - pad))
 
-        region = self._slide.read_region((cx, cy), 0, PATCH_DIM)
+        region = self._slide.read_region((cx, cy), 0, PATCH_DIM).convert('RGB')
 
         patch_meta = []
         patch_norm = []
@@ -289,7 +327,24 @@ def get_true_points_2D(mat):
                 points.append((i, j))
     return points
 
+NORMALIZERS = (
+    stainNorm_Vahadane.Normalizer(),
+    stainNorm_Vahadane.Normalizer(),
+    stainNorm_Vahadane.Normalizer(),
+    stainNorm_Vahadane.Normalizer(),
+    stainNorm_Vahadane.Normalizer(),
+)
 
+for sample, normalizer in zip(CENTRE_SAMPLES, NORMALIZERS):
+    normalizer.fit(sample)
+
+def color_augment(pil_img):
+    images = []
+    cv_img = np.array(pil_img)
+    for n in NORMALIZERS:
+        new_img = n.transform(cv_img)
+        images.append(Image.fromarray(new_img))
+    return images
 
 def main(args):
     print('[Running patch extraction...]')
@@ -300,66 +355,98 @@ def main(args):
     # Read TIF
     # Read XML Tumor Label
     print('Reading wsi_filenames...')
-    with open(str(args.data_dir_path / args.list_file_path)) as list_file:
-        tif_dir_path = args.data_dir_path / args.tif_dir_name
-        label_dir_path = args.data_dir_path / args.label_dir_name
 
-        for wsi_filename in list_file:
-            data = WSIData(
-                tif_path=(tif_dir_path / (wsi_filename.strip() + '.tif')),
-                label_path=(label_dir_path / (wsi_filename.strip() + '.xml')),
-            )
+    ## Old path reading
+    # with open(str(args.data_dir_path / args.list_file_path)) as list_file:
+    #     tif_dir_path = args.data_dir_path / args.tif_dir_name
+    #     label_dir_path = args.data_dir_path / args.label_dir_name
+
+    #     for wsi_filename in list_file:
+    #         data = WSIData(
+    #             tif_path=(tif_dir_path / (wsi_filename.strip() + '.tif')),
+    #             label_path=(label_dir_path / (wsi_filename.strip() + '.xml')),
+    #         )
+    #         wsi_data.append(data)
+
+    ## New Path reading
+    with open(str(args.data_list_file)) as csvfile:
+        csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
+        for line in csvreader:
+            tif_path, label_path = line
+            tif_path = Path(tif_path)
+            label_path = (label_path or None) and Path(label_path)
+            data = WSIData(wsi_name=tif_path.stem,
+                           tif_path=tif_path,
+                           label_path=label_path)
             wsi_data.append(data)
+
+    output_parent_dir = args.output_path / args.output_dir_name
+    output_jpegs = output_parent_dir / 'data'
+    output_annot = output_parent_dir / 'labels'
+    output_jpegs.mkdir(parents=True, exist_ok=True)
+    output_annot.mkdir(parents=True, exist_ok=True)
+
 
     for data in wsi_data:
         ## Get ROI pixels from TIF on low resolution
         ## Subtract Tumor Label from Tissue mask
         # Store ROI pixels and tumor pixels
         normal_points = get_true_points_2D(data.get_normal_mask())
-        if data.label_path is not None:
-            metastases_points = get_true_points_2D(data.get_metastases_mask())
+        print('Extracting patches from', data.name)
+        metastases_points = get_true_points_2D(data.get_metastases_mask())
 
-            for i in range(TUMOR_EXTRACTION_COUNT):
-                if randint(0, 100) <= TUMOR_EXTRACTION_COUNT:
-                    point_list = metastases_points
-                else:
-                    point_list = normal_points
+        is_tumor = data.label_path is not None
 
-                region, label = data.read_region(
-                    point_list[randint(0, len(point_list) - 1)])
+        max_count = (TUMOR_EXTRACTION_COUNT if is_tumor
+                     else NORMAL_EXTRACTION_COUNT)
 
-                # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
-                # axarr[0].imshow(region)
-                # axarr[1].imshow(label)
-                # plt.show()
+        patch_count = 0
+        while patch_count < max_count:
+            if is_tumor and randint(0, 100) <= METASTASES_PROBABILITY:
+                point_list = metastases_points
+            else:
+                point_list = normal_points
 
-                break
-        else:
-            for i in range(NORMAL_EXTRACTION_COUNT):
-                print(normal_points)
-                break
+            idx = randint(0, len(point_list) - 1)
+            region, label = data.read_region(point_list[idx])
 
+            img_var = np.array(region.convert('L')).var()
 
+            if img_var < 350:
+                point_list.remove(idx)
+                continue
 
+            aug = color_augment(region)
+            # f, axarr = plt.subplots(2, 6, sharex=True, sharey=True)
+            # axarr[0, 0].imshow(region)
+            # axarr[0, 1].imshow(label)
+            # axarr[0, 2].imshow(aug[0])
+            # axarr[0, 3].imshow(aug[1])
+            # axarr[1, 0].imshow(aug[2])
+            # axarr[1, 1].imshow(aug[3])
+            # axarr[1, 2].imshow(aug[4])
 
+            # plt.show()
+            # break
 
+            uuid_suffix = str(uuid4()).replace('-', '_')
+            stem = data.name + '_' + uuid_suffix
+            for i, region in enumerate(aug):
+                centre_stem = stem + '_c' + str(i)
+                patch = centre_stem + '.jpeg'
+                annot = centre_stem + '.png'
+                region.save(str(output_jpegs / patch), 'JPEG')
+                label.save(str(output_annot / annot), 'PNG')
 
+            patch_count += 1
 
-        # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
-        # axarr[0].imshow(region)
-        # axarr[1].imshow(label)
-        # plt.show()
+            # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
+            # axarr[0].imshow(region)
+            # axarr[1].imshow(label)
+            # plt.show()
 
         # 50:50 select a class to extract a patch from
         # label_class = randint(0, 1)
-
-        break
-
-
-
-
-
-
 
     # Get size coordinates of extracted patch and clip
     #   to tumor label: Patch label generation
