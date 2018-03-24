@@ -335,8 +335,6 @@ NORMALIZERS = (
     stainNorm_Vahadane.Normalizer(),
 )
 
-for sample, normalizer in zip(CENTRE_SAMPLES, NORMALIZERS):
-    normalizer.fit(sample)
 
 def color_augment(pil_img):
     images = []
@@ -347,14 +345,14 @@ def color_augment(pil_img):
     return images
 
 def main(args):
-    print('[Running patch extraction...]')
+    print('> Running patch extraction')
     print()
 
     wsi_data = []
 
     # Read TIF
     # Read XML Tumor Label
-    print('Reading wsi_filenames...')
+    print('  > Reading wsi_filenames')
 
     ## Old path reading
     # with open(str(args.data_dir_path / args.list_file_path)) as list_file:
@@ -380,6 +378,7 @@ def main(args):
                            label_path=label_path)
             wsi_data.append(data)
 
+    print('  > Created output directories')
     output_parent_dir = args.output_path / args.output_dir_name
     output_jpegs = output_parent_dir / 'data'
     output_annot = output_parent_dir / 'labels'
@@ -392,7 +391,7 @@ def main(args):
         ## Subtract Tumor Label from Tissue mask
         # Store ROI pixels and tumor pixels
         normal_points = get_true_points_2D(data.get_normal_mask())
-        print('Extracting patches from', data.name)
+        print('  > Extracting patches from', data.name)
         metastases_points = get_true_points_2D(data.get_metastases_mask())
 
         is_tumor = data.label_path is not None
@@ -402,6 +401,7 @@ def main(args):
 
         patch_count = 0
         while patch_count < max_count:
+            print('    > Extracting patch {}'.format(patch_count))
             if is_tumor and randint(0, 100) <= METASTASES_PROBABILITY:
                 point_list = metastases_points
             else:
@@ -413,9 +413,11 @@ def main(args):
             img_var = np.array(region.convert('L')).var()
 
             if img_var < 350:
-                point_list.remove(idx)
+                point_list.pop(idx)
+                print('      > Dropped patch {}... Restarting'.format(patch_count))
                 continue
 
+            print('      > Performing color augmentation')
             aug = color_augment(region)
             # f, axarr = plt.subplots(2, 6, sharex=True, sharey=True)
             # axarr[0, 0].imshow(region)
@@ -429,6 +431,7 @@ def main(args):
             # plt.show()
             # break
 
+            print('      > Writing patches to disk')
             uuid_suffix = str(uuid4()).replace('-', '_')
             stem = data.name + '_' + uuid_suffix
             for i, region in enumerate(aug):
@@ -437,6 +440,7 @@ def main(args):
                 annot = centre_stem + '.png'
                 region.save(str(output_jpegs / patch), 'JPEG')
                 label.save(str(output_annot / annot), 'PNG')
+            print('      > Finished patch {}')
 
             patch_count += 1
 
@@ -454,4 +458,8 @@ def main(args):
 
 
 if __name__ == '__main__':
+    print('> Initializing color normalizers')
+    for sample, normalizer in zip(CENTRE_SAMPLES, NORMALIZERS):
+        normalizer.fit(sample)
+
     main(parser.parse_args())
