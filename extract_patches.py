@@ -92,7 +92,7 @@ class LabelClass(IntEnum):
 DOWNSAMPLING_LEVEL = 5
 SMALL_OBJECT_AREA = 512
 SMALL_HOLE_AREA = 196
-PATCH_SIDE = 2048
+PATCH_SIDE = 1024
 PATCH_DIM = (PATCH_SIDE, PATCH_SIDE)
 METASTASES_PROBABILITY = 70
 TUMOR_EXTRACTION_COUNT = 100
@@ -440,7 +440,7 @@ def main(args):
                 annot = centre_stem + '.png'
                 region.save(str(output_jpegs / patch), 'JPEG')
                 label.save(str(output_annot / annot), 'PNG')
-            print('      > Finished patch {}'.format(i))
+            print('      > Finished patch {}'.format(patch_count))
 
             patch_count += 1
 
