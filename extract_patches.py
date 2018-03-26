@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 import csv
 from enum import IntEnum
+import gc
 from pathlib import Path
 from random import randint
 from uuid import uuid4
@@ -385,7 +386,8 @@ def main(args):
     output_annot.mkdir(parents=True, exist_ok=True)
 
 
-    for data in wsi_data:
+    while wsi_data:
+        data = wsi_data.pop(0)
         ## Get ROI pixels from TIF on low resolution
         ## Subtract Tumor Label from Tissue mask
         # Store ROI pixels and tumor pixels
@@ -443,6 +445,11 @@ def main(args):
             print('      > Finished patch {}'.format(patch_count))
 
             patch_count += 1
+            del data
+            del aug
+            del label
+
+            print('      > Memory freed: {}'.format(gc.collect()))
 
             # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
             # axarr[0].imshow(region)
