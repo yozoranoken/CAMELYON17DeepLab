@@ -1,15 +1,19 @@
 name: camelyon17-deeplab
 channels:
-- anaconda
+- aaronzs
 - conda-forge
+- anaconda
 - defaults
 dependencies:
+- tensorboard=1.6.0=py35_0
 - bokeh=0.12.14=py35_0
 - bzip2=1.0.6=h9a117a8_4
 - ca-certificates=2017.08.26=h1d4fec5_0
 - cairo=1.14.12=h77bcde2_0
 - certifi=2018.1.18=py35_0
 - cloudpickle=0.5.2=py35_1
+- cudatoolkit=8.0=3
+- cudnn=7.0.5=cuda8.0_0
 - cycler=0.10.0=py35_0
 - cytoolz=0.9.0.1=py35h14c3975_0
 - dask=0.17.2=py35_0
@@ -36,7 +40,6 @@ dependencies:
 - libgfortran-ng=7.2.0=hdf63c60_3
 - libopus=1.2.1=hb9ed12e_0
 - libpng=1.6.34=hb9fc6fc_0
-- libprotobuf=3.4.1=h5b8497f_0
 - libstdcxx-ng=7.2.0=hdf63c60_3
 - libtiff=4.0.9=h28f6b97_0
 - libvpx=1.6.1=h888fd40_0
@@ -62,10 +65,14 @@ dependencies:
 - qt=5.6.2=h974d657_12
 - readline=7.0=ha6073c6_4
 - scikit-image=0.13.1=py35h14c3975_1
+- scipy=1.0.0=py35hcbbe4a2_0
 - setuptools=38.5.1=py35_0
 - sortedcontainers=1.5.9=py35_0
 - sqlite=3.22.0=h1bed415_0
 - tblib=1.3.2=py35hf1eb0b4_0
+- tensorflow-gpu=1.4.1=0
+- tensorflow-gpu-base=1.4.1=py35h01caf0a_0
+- tensorflow-tensorboard=1.5.1=py35hf484d3e_0
 - tk=8.6.7=hc745277_3
 - toolz=0.9.0=py35_0
 - wheel=0.30.0=py35hd3883cf_1
@@ -97,19 +104,33 @@ dependencies:
 - python-dotenv=0.8.2=py35_0
 - python-spams=2.6=py35_blas_openblas_203
 - pytz=2018.3=py_0
-- scipy=1.0.0=py35_blas_openblas_201
 - sip=4.18=py35_1
 - six=1.11.0=py35_1
 - tornado=5.0.1=py35_1
 - x264=20131217=3
 - xorg-libxau=1.0.8=3
 - xorg-libxdmcp=1.1.2=3
+- absl-py=0.1.10=py35_0
+- astor=0.6.2=py35_0
+- backports.weakref=1.0.post1=py35h2eecce5_0
+- bleach=1.5.0=py35_0
+- gast=0.2.0=py35_0
+- grpcio=1.10.0=py35hf484d3e_0
+- html5lib=0.9999999=py35_0
 - libgcc=7.2.0=h69d50b8_2
 - libgfortran=3.0.0=1
+- libprotobuf=3.5.1=h6f1eeef_0
+- markdown=2.6.11=py35_0
+- mock=2.0.0=py35h70ca42c_0
+- pbr=3.1.1=py35hdfb5056_0
+- protobuf=3.5.1=py35hf484d3e_0
+- termcolor=1.1.0=py35_1
+- werkzeug=0.14.1=py35_0
 - pip:
   - backports.functools-lru-cache==1.5
   - openslide-python==1.1.1
   - pyclipper==1.1.0
   - spams==2.6
+  - tensorflow==1.4.1
 prefix: /home/shishigami/.pyenv/versions/anaconda3-5.0.1/envs/camelyon17-deeplab
 
