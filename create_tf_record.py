@@ -74,7 +74,7 @@ def create_tfrecord_dataset(
             tf.logging.info('On image %d of %d', i, len(filename_list))
 
         image_path = images_dir / (image_name + '.jpeg')
-        annotation_path = labels_dir / (image_name + '.png')
+        annotation_path = labels_dir / (image_name + '.mat')
 
 
         if not image_path.is_file():
@@ -88,7 +88,7 @@ def create_tfrecord_dataset(
 
 
         image_np = imread(str(image_path))
-        annotation_np = imread(str(annotation_path))
+        annotation_np = spio.loadmat(str(annotation_path))['data']
 
         image_h = image_np.shape[0]
         image_w = image_np.shape[1]
