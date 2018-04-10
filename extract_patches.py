@@ -4,6 +4,7 @@ import csv
 from enum import IntEnum
 import gc
 from pathlib import Path
+from random import random
 from random import randint
 from uuid import uuid4
 
@@ -48,6 +49,7 @@ parser.add_argument(
 
 _METASTASES_PROBABILITY = 60
 _SAMPLE_MULTIPLIER = 3
+_MAX_COUNT = 200
 
 def get_true_points_2D(mat):
     points = []
@@ -123,23 +125,37 @@ def main(args):
 
         is_tumor = data.label_path is not None
 
-        roi_area = ((len(metastases_points) + len(normal_points))
-                    * 2**data.get_default_downsampling_level())
+        l0_ds_area = (2**data.get_default_downsampling_level())**2
+        normal_roi_area = len(normal_points) * l0_ds_area
+        metastases_roi_area = len(metastases_points) * l0_ds_area
+        roi_area = normal_roi_area + metastases_roi_area
         patch_area = data.PATCH_DIM[0] * data.PATCH_DIM[1]
         max_count = int(_SAMPLE_MULTIPLIER * (roi_area // patch_area))
-        logger.info('[WSI %s] - Extracting %s patches.', data.name, max_count)
+
+        normal_percentage = int(normal_roi_area / roi_area)
+        tumor_percentage = 100 - normal_percentage
+        logger.info('[WSI %s] - Extracting %s patches.', data.name, _MAX_COUNT)
+        logger.info('[WSI %s] - Area ratio: %s:%s;NORMAL:TUMOR.', data.name,
+                    normal_percentage, tumor_percentage)
 
         patch_count = 0
         tumor_patch_count = 0
         normal_patch_count = 0
 
-        while patch_count < max_count:
+        req_tumor_count = min(round(0.8 * _MAX_COUNT), 5 * metastases_roi_area // patch_area)
+        p_tumor = metastases_roi_area / roi_area
+        logger.info('[WSI %s] - Tumor: %s', data.name, round(p_tumor, 5) * 100)
+
+        while patch_count < _MAX_COUNT:
             logger.info('[WSI %s] - Extracting patch [%s / %s].', data.name,
-                        patch_count, max_count)
-            if is_tumor and randint(0, 100) <= _METASTASES_PROBABILITY:
+                        patch_count, _MAX_COUNT)
+            p = random()
+            logger.info('[WSI %s] - P: %s; P_T: %s', data.name, p, p_tumor)
+            if is_tumor and (req_tumor_count > 0 or p <= p_tumor):
                 logger.info('[WSI %s] - Sampled near metastases.', data.name)
                 point_list = metastases_points
                 is_tumor_extracted = True
+                req_tumor_count -= 1
             else:
                 logger.info('[WSI %s] - Sampled in normal region.', data.name)
                 point_list = normal_points
