@@ -31,9 +31,12 @@ class Centre(IntEnum):
 
 class WSIData(ABC):
 
-    def __init__(self, tif_path, centre, label_path=None):
+    def __init__(self, tif_path, centre, label_tif_path=None, label_xml_path=None):
         self._wsi_slide = OpenSlide(str(tif_path))
-        self._label_slide = label_path and OpenSlide(str(label_path))
+        self._tif_path = tif_path
+        self._label_tif_path = label_tif_path
+        self._label_xml_path = label_xml_path
+        self._label_slide = None
 
         if not isinstance(centre, Centre):
             raise TypeError('centre must be an instance of {}.Centre.'
@@ -41,6 +44,10 @@ class WSIData(ABC):
         self._centre = centre
         self._name = tif_path.stem
 
+    def _load_label_slide(self):
+        if self._label_slide is None and self._label_tif_path is not None:
+            self._label_slide = (self._label_tif_path and
+                                 OpenSlide(str(self._label_tif_path)))
 
     def _roi_threshold(self, img_np):
         '''Performs thresholding on the WSI image to extract the tissue region.
@@ -84,6 +91,13 @@ class WSIData(ABC):
     def centre(self):
         return self._centre
 
+    @property
+    def label_xml_path(self):
+        return self._label_xml_path
+
+    @property
+    def tif_path(self):
+        return self._tif_path
 
     def get_full_wsi_image(self, level):
         '''Returns the whole WSI as an RGB image.
@@ -177,6 +191,7 @@ class WSIData(ABC):
         wsi_w, wsi_h = self._wsi_slide.level_dimensions[level]
         metastases_mask = np.full((wsi_h, wsi_w), False)
 
+        self._load_label_slide()
         if self._label_slide is not None:
             label_dim = self._label_slide.level_dimensions[level]
             label_img = self._label_slide.read_region((0, 0), level, label_dim)
@@ -220,6 +235,7 @@ class WSIData(ABC):
         patch_img = self._wsi_slide.read_region(*args)
         patch_np = np.array(patch_img.convert('RGB'))
 
+        self._load_label_slide()
         if self._label_slide is not None:
             label_img = self._label_slide.read_region(*args)
             label_np = np.array(label_img.convert('L'))
@@ -253,7 +269,8 @@ class C16WSIData(WSIData):
         bool[H, W] np.array
             Mask to serve as the new label
         '''
-        blank_mask_np[np.where(label_np > 0)] = True
+        blank_mask_np[np.where(label_np == 1)] = True
+        blank_mask_np[np.where(label_np == 2)] = False
 
 
 class C17WSIData(WSIData):
@@ -299,16 +316,22 @@ def parse_dataset(filelist_path):
     with open(str(filelist_path)) as csvfile:
         csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
         for line in csvreader:
-            tif_path, label_path, release_group, centre = line
+            tif_path, label_tif_path, label_xml_path, release_group, centre = line
             tif_path = Path(tif_path)
-            label_path = (label_path or None) and Path(label_path)
+            label_tif_path = (label_tif_path or None) and Path(label_tif_path)
+            label_xml_path = (label_xml_path or None) and Path(label_xml_path)
 
-            args = tif_path, Centre(int(centre)), label_path
+            kwargs = {
+                'tif_path': tif_path,
+                'centre': Centre(int(centre)),
+                'label_tif_path': label_tif_path,
+                'label_xml_path': label_xml_path,
+            }
 
             if release_group == '16':
-                data = C16WSIData(*args)
+                data = C16WSIData(**kwargs)
             elif release_group == '17':
-                data = C17WSIData(*args)
+                data = C17WSIData(**kwargs)
 
             wsi_data.append(data)
     return wsi_data

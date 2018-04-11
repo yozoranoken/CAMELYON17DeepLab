@@ -74,7 +74,7 @@ def main(args):
             dpi=300,
             bbox_inches='tight',
         )
-        plt.close()
+        plt.close(fig)
         del wd
 
 

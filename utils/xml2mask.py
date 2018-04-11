@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image
 
 from core import get_logger
+from core import parse_dataset
 
 
 parser = ArgumentParser(
@@ -44,48 +45,11 @@ parser.add_argument(
 
 _LABEL_MAP = {
     'metastases': 1,
-    '_0': 255,
-    '_1': 255,
+    '_0': 1,
+    '_1': 1,
     'normal': 2,
     '_2': 2,
 }
-
-Data = namedtuple('Data', (
-    'tif_path',
-    'centre',
-    'label_path',
-    'name',
-))
-
-def parse_dataset(filelist_path):
-    '''Parse data from CSV file to a list of WSIData.
-
-    The CSV file should contain this row format.
-    tif_path, label_path, camelyon_{16,17}, centre
-
-    Parameters
-    ----------
-    filelist_path: Path
-        Path to the csv file.
-
-    Returns
-    -------
-    WSIData[]
-        A list of WSI data parsed from the file.
-    '''
-    wsi_data = []
-    with open(str(filelist_path)) as csvfile:
-        csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
-        for line in csvreader:
-            tif_path, label_path, release_group, centre = line
-            tif_path = Path(tif_path)
-            label_path = (label_path or None) and Path(label_path)
-
-            args = tif_path, int(centre), label_path, tif_path.stem
-            data = Data(*args)
-            wsi_data.append(data)
-
-    return wsi_data
 
 def main(args):
     logger = get_logger('XML-to-MASK')
@@ -95,6 +59,8 @@ def main(args):
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
     logger.info('Reading WSI data objects.')
+
+    # TODO: replace this call
     wsi_data = parse_dataset(args.data_list_file)
 
     while wsi_data:
@@ -110,13 +76,13 @@ def main(args):
         annotation_list = mir.AnnotationList()
         xml_repository = mir.XmlRepository(annotation_list)
 
-        if data.label_path is None:
+        if data.label_xml_path is None:
             logger.info('No annotation exists. Ignoring %s', data.name)
             continue
-        elif not data.label_path.is_file():
+        elif not data.label_xml_path.is_file():
             logger.warning('Label File not found. Ignoring %s', data.name)
             continue
-        xml_repository.setSource(str(data.label_path))
+        xml_repository.setSource(str(data.label_xml_path))
 
         xml_repository.load()
         annotation_mask = mir.AnnotationToMask()
