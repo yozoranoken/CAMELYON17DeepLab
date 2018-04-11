@@ -32,9 +32,10 @@ class Centre(IntEnum):
 
 class WSIData:
 
-    def __init__(self, tif_path, centre, label_tif_path=None, label_xml_path=None):
+    def __init__(self, tif_path, centre, is_excluded, label_tif_path=None, label_xml_path=None):
         self._wsi_slide = OpenSlide(str(tif_path))
         self._tif_path = tif_path
+        self._is_excluded = is_excluded
         self._label_tif_path = label_tif_path
         self._label_xml_path = label_xml_path
         self._label_slide = None
@@ -124,6 +125,10 @@ class WSIData:
     @property
     def tif_path(self):
         return self._tif_path
+
+    @property
+    def is_excluded(self):
+        return self._is_exluded
 
     def get_full_wsi_image(self, level):
         '''Returns the whole WSI as an RGB image.
@@ -303,7 +308,8 @@ def parse_dataset(filelist_path):
     with open(str(filelist_path)) as csvfile:
         csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
         for line in csvreader:
-            tif_path, label_tif_path, label_xml_path, release_group, centre = line
+            (tif_path, label_tif_path, label_xml_path, release_group,
+             centre, is_excluded) = line
             tif_path = Path(tif_path)
             label_tif_path = (label_tif_path or None) and Path(label_tif_path)
             label_xml_path = (label_xml_path or None) and Path(label_xml_path)
@@ -313,6 +319,7 @@ def parse_dataset(filelist_path):
                 'centre': Centre(int(centre)),
                 'label_tif_path': label_tif_path,
                 'label_xml_path': label_xml_path,
+                'is_excluded': bool(is_excluded),
             }
 
             data = WSIData(**kwargs)
