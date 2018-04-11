@@ -60,7 +60,6 @@ def main(args):
 
     logger.info('Reading WSI data objects.')
 
-    # TODO: replace this call
     wsi_data = parse_dataset(args.data_list_file)
 
     while wsi_data:
