@@ -96,6 +96,9 @@
 "train/wsis/tumor_095.tif","train/ground_truth/masks/tumor_095_Mask.tif","train/ground_truth/xml/tumor_095.xml",16,0,1
 "train/wsis/tumor_096.tif","train/ground_truth/masks/tumor_096_Mask.tif","train/ground_truth/xml/tumor_096.xml",16,0,0
 "train/wsis/tumor_097.tif","train/ground_truth/masks/tumor_097_Mask.tif","train/ground_truth/xml/tumor_097.xml",16,0,0
+"train/wsis/tumor_098.tif","train/ground_truth/masks/tumor_098_Mask.tif","train/ground_truth/xml/tumor_098.xml",16,0,0
+"train/wsis/tumor_099.tif","train/ground_truth/masks/tumor_099_Mask.tif","train/ground_truth/xml/tumor_099.xml",16,0,0
+"train/wsis/tumor_100.tif","train/ground_truth/masks/tumor_100_Mask.tif","train/ground_truth/xml/tumor_100.xml",16,0,0
 "train/wsis/tumor_101.tif","train/ground_truth/masks/tumor_101_Mask.tif","train/ground_truth/xml/tumor_101.xml",16,0,0
 "train/wsis/tumor_102.tif","train/ground_truth/masks/tumor_102_Mask.tif","train/ground_truth/xml/tumor_102.xml",16,0,0
 "train/wsis/tumor_103.tif","train/ground_truth/masks/tumor_103_Mask.tif","train/ground_truth/xml/tumor_103.xml",16,0,0
