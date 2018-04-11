@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 import csv
 from enum import IntEnum
 import logging
@@ -29,7 +28,7 @@ class Centre(IntEnum):
     CENTRE_4 = 4
 
 
-class WSIData(ABC):
+class WSIData:
 
     def __init__(self, tif_path, centre, label_tif_path=None, label_xml_path=None):
         self._wsi_slide = OpenSlide(str(tif_path))
@@ -82,6 +81,32 @@ class WSIData(ABC):
         binary = morphology.remove_small_holes(binary, _SMALL_HOLE_AREA)
         binary = median(binary, morphology.disk(_MEDIAN_DISK))
         return binary
+
+        return binary.astype(bool)
+
+
+    def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
+        '''Marks the blank mask using the given label image.
+
+        This is to be overriden due to the different nature of the labels
+        from the CAMELYON 16 and 17 data set.
+
+        Parameters
+        ----------
+        blank_mask_np: bool[H, W] np.array
+            Mask to serve as the new label
+
+        label_np: np.uint[H, W] np.array
+            Gray scale image with the mask values.
+
+        Returns
+        -------
+        bool[H, W] np.array
+            Mask to serve as the new label
+        '''
+        blank_mask_np[np.where(label_np == 1)] = True
+        blank_mask_np[np.where(label_np == 2)] = False
+
 
     @property
     def name(self):
@@ -150,29 +175,6 @@ class WSIData(ABC):
         wsi_img_np = np.array(wsi_img, dtype=np.uint8)
         roi_mask = self._roi_threshold(wsi_img_np)
         return roi_mask
-
-
-    @abstractmethod
-    def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
-        '''Marks the blank mask using the given label image.
-
-        This is to be overriden due to the different nature of the labels
-        from the CAMELYON 16 and 17 data set.
-
-        Parameters
-        ----------
-        blank_mask_np: bool[H, W] np.array
-            Mask to serve as the new label
-
-        label_np: np.uint[H, W] np.array
-            Gray scale image with the mask values.
-
-        Returns
-        -------
-        bool[H, W] np.array
-            Mask to serve as the new label
-        '''
-        pass
 
 
     def get_metastases_mask(self, level):
@@ -250,50 +252,14 @@ class WSIData(ABC):
         return '<Centre: {}, Name: {}>'.format(self._centre, self._name)
 
 
-class C16WSIData(WSIData):
-    def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
-        '''Marks the blank mask using the given label image.
-
-        The images are simply labeled with 255 for positive and 0 for negative.
-
-        Parameters
-        ----------
-        blank_mask_np: bool[H, W] np.array
-            Mask to serve as the new label
-
-        label_np: np.uint[H, W] np.array
-            Gray scale image with the mask values.
-
-        Returns
-        -------
-        bool[H, W] np.array
-            Mask to serve as the new label
-        '''
-        blank_mask_np[np.where(label_np == 1)] = True
-        blank_mask_np[np.where(label_np == 2)] = False
 
 
-class C17WSIData(WSIData):
-    def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
-        '''Marks the blank mask using the given label image.
 
-        The images are simply labeled with 255 for positive and 0 for negative.
 
-        Parameters
-        ----------
-        blank_mask_np: bool[H, W] np.array
-            Mask to serve as the new label
 
-        label_np: np.uint[H, W] np.array
-            Gray scale image with the mask values.
 
-        Returns
-        -------
-        bool[H, W] np.array
-            Mask to serve as the new label
-        '''
-        blank_mask_np[np.where(label_np == 1)] = True
-        blank_mask_np[np.where(label_np == 2)] = False
+
+
 
 
 def parse_dataset(filelist_path):
@@ -328,10 +294,7 @@ def parse_dataset(filelist_path):
                 'label_xml_path': label_xml_path,
             }
 
-            if release_group == '16':
-                data = C16WSIData(**kwargs)
-            elif release_group == '17':
-                data = C17WSIData(**kwargs)
+            data = WSIData(**kwargs)
 
             wsi_data.append(data)
     return wsi_data
