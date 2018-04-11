@@ -1,6 +1,7 @@
 import csv
 from enum import IntEnum
 import logging
+import math
 from pathlib import Path
 import sys
 
@@ -18,6 +19,7 @@ from skimage.filters.rank import median
 _SMALL_HOLE_AREA = 128
 _SMALL_OBJECT_AREA = 128
 _MEDIAN_DISK = 17
+_ROI_PATCH_COVER_PERCENTAGE = 0.4
 
 
 class Centre(IntEnum):
@@ -80,7 +82,6 @@ class WSIData:
         binary = morphology.remove_small_objects(binary, _SMALL_OBJECT_AREA)
         binary = morphology.remove_small_holes(binary, _SMALL_HOLE_AREA)
         binary = median(binary, morphology.disk(_MEDIAN_DISK))
-        return binary
 
         return binary.astype(bool)
 
@@ -247,19 +248,39 @@ class WSIData:
 
         return patch_np, label_np
 
+    def _get_roi_patch_positions(self, level, get_roi, stride=256,
+                                 patch_side=513, ds_level=5):
+        assert ds_level > level, 'level must be less than ds_level'
+
+        width, height = self._wsi_slide.level_dimensions[level]
+        ds_roi = get_roi(ds_level)
+        ds = 2**(ds_level - level)
+
+        for y in range(0, math.ceil(height / stride) * stride, stride):
+            for x in range(0, math.ceil(width / stride) * stride, stride):
+                y_ds = y // ds
+                x_ds = x // ds
+                y_ds_end = (y + stride) // ds
+                x_ds_end = (x + stride) // ds
+                roi_patch = ds_roi[y_ds:y_ds_end, x_ds:x_ds_end]
+
+                if (np.sum(roi_patch) / roi_patch.size >
+                    _ROI_PATCH_COVER_PERCENTAGE):
+                    yield x, y
+
+
+    def get_roi_patch_positions(self, level, stride=256, patch_side=513,
+                                ds_level=5):
+        return self._get_roi_patch_positions(level, self.get_roi_mask)
+
+
+    def get_metastases_roi_patch_positions(self, level, stride=256,
+                                           patch_side=513, ds_level=5):
+        return self._get_roi_patch_positions(level, self.get_metastases_mask)
+
 
     def __repr__(self):
         return '<Centre: {}, Name: {}>'.format(self._centre, self._name)
-
-
-
-
-
-
-
-
-
-
 
 
 def parse_dataset(filelist_path):
@@ -316,37 +337,54 @@ def get_logger(name):
     return logger
 
 
-if __name__ == '__main__':
-    ds = parse_dataset('/media/shishigami/CVMIGDataDrive/CAMELYON16/window_slide_images/training/C16DataList.csv')
-    print(ds)
+def __test_relative_downsample_sizes():
+    data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data.csv'
+    wsi_data = parse_dataset(data_list_path_s)
+    slide = wsi_data[0]
 
-    sys.exit()
-    _TIF_PATH = Path('/media/shishigami/CVMIGDataDrive/CAMELYON16/' +
-                     'window_slide_images/training/tumor/Tumor_078.tif')
-    _LABEL_PATH = Path('/media/shishigami/CVMIGDataDrive/CAMELYON16' +
-                       '/window_slide_images/training/ground_truth/Masks' +
-                       '/Tumor_078_Mask.tif')
-    # _TIF_PATH = Path('/media/shishigami/CVMIGDataDrive/CAMELYON16/' +
-    #                  'window_slide_images/training/normal/Normal_021.tif')
-    # _LABEL_PATH = None
-    d = C16WSIData(_TIF_PATH, Centre.CENTRE_2, _LABEL_PATH)
+    side = 513
+    coord = 71880, 125850
+    lvl = 1
+    lvl_ds = 2
+    ds = 2**(lvl_ds - lvl)
+    img, _ = slide.read_region_and_label(coord, lvl, (side, side))
+    img_ds, _ = slide.read_region_and_label(coord, lvl_ds, (int(side // ds), int(side // ds)))
 
-    lvl = 5
-    # img = d.get_full_wsi_image(lvl)
-    # roi_mask = d.get_roi_mask(lvl)
-    # metastases_mask = d.get_metastases_mask(lvl)
-    # merged_mask = np.full(roi_mask.shape, 0, dtype=np.uint8)
-    # merged_mask[np.where(roi_mask)] = 1
-    # merged_mask[np.where(metastases_mask)] = 2
-    # f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
-    # axarr[0].imshow(img)
-    # axarr[1].imshow(roi_mask)
-    # axarr[1].imshow(metastases_mask)
-    # axarr[1].imshow(merged_mask)
-    # plt.show()
-
-    patch, label = d.read_region_and_label((41300, 78300), 1, (513 * 5, 513 * 5))
-    f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
-    axarr[0].imshow(patch)
-    axarr[1].imshow(label)
+    f, axarr = plt.subplots(1, 2)
+    axarr[0].imshow(img)
+    axarr[1].imshow(img_ds)
     plt.show()
+
+def __test_get_roi_patch_positions():
+    data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data.csv'
+    wsi_data = parse_dataset(data_list_path_s)
+    slide = wsi_data[0]
+
+    level = 2
+    stride = 256
+    patch_side = 513
+    ds_level = 5
+    w, h = slide.get_level_dimension(ds_level)
+    test_mask = np.full((h, w), False)
+    ds = 2**(ds_level - level)
+
+    count = 0
+    for x, y in slide.get_roi_patch_positions(level, stride, patch_side, ds_level):
+        y_ds = y // ds
+        x_ds = x // ds
+        y_ds_end = (y + patch_side) // ds
+        x_ds_end = (x + patch_side) // ds
+        test_mask[y_ds:y_ds_end, x_ds:x_ds_end] = True
+        count += 1
+    print(count)
+
+    ds_mask = slide.get_roi_mask(ds_level)
+
+    f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
+    axarr[0].imshow(ds_mask)
+    axarr[1].imshow(test_mask)
+    plt.show()
+
+
+if __name__ == '__main__':
+    __test_get_roi_patch_positions()
