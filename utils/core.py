@@ -275,18 +275,26 @@ class WSIData:
 
 
     def get_roi_patch_positions(self, level, stride=256, patch_side=513,
-                                ds_level=5):
-        return self._get_roi_patch_positions(level, self.get_roi_mask)
+                                ds_level=5, force_not_excluded=False):
+        if not self._is_excluded or force_not_excluded:
+            get_roi = self.get_roi_mask
+        else:
+            get_roi = self.get_metastases_mask
 
-
-    def get_metastases_roi_patch_positions(self, level, stride=256,
-                                           patch_side=513, ds_level=5):
-        return self._get_roi_patch_positions(level, self.get_metastases_mask)
-
+        return self._get_roi_patch_positions(
+            level,
+            get_roi,
+            stride,
+            patch_side,
+            ds_level,
+        )
 
     def __repr__(self):
         return '<Centre: {}, Name: {}>'.format(self._centre, self._name)
 
+
+_CENTRE_STR_VALS = tuple(str(i) for i in range(5))
+_BOOL_STR_VALS = ('0', '1')
 
 def parse_dataset(filelist_path):
     '''Parse data from CSV file to a list of WSIData.
@@ -307,19 +315,28 @@ def parse_dataset(filelist_path):
     wsi_data = []
     with open(str(filelist_path)) as csvfile:
         csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
-        for line in csvreader:
+        for i, line in enumerate(csvreader):
             (tif_path, label_tif_path, label_xml_path, release_group,
              centre, is_excluded) = line
             tif_path = Path(tif_path)
             label_tif_path = (label_tif_path or None) and Path(label_tif_path)
             label_xml_path = (label_xml_path or None) and Path(label_xml_path)
 
+            if centre not in _CENTRE_STR_VALS:
+                raise ValueError(
+                    'Skipping row {}; {} is not a valid centre; use {}'
+                    .format(i, centre, _CENTRE_STR_VALS))
+
+            if is_excluded not in _BOOL_STR_VALS:
+                raise ValueError('Skipping row {}; {} not a 0 or 1'
+                                 .format(i, is_excluded))
+
             kwargs = {
                 'tif_path': tif_path,
                 'centre': Centre(int(centre)),
                 'label_tif_path': label_tif_path,
                 'label_xml_path': label_xml_path,
-                'is_excluded': bool(is_excluded),
+                'is_excluded': bool(int(is_excluded)),
             }
 
             data = WSIData(**kwargs)
@@ -392,6 +409,37 @@ def __test_get_roi_patch_positions():
     axarr[1].imshow(test_mask)
     plt.show()
 
+def __test_get_metastases_roi_patch_positions():
+    data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data_test_001.csv'
+    wsi_data = parse_dataset(data_list_path_s)
+    slide = wsi_data[1]
+    print(slide.name)
+
+    level = 2
+    stride = 256
+    patch_side = 513
+    ds_level = 5
+    w, h = slide.get_level_dimension(ds_level)
+    test_mask = np.full((h, w), False)
+    ds = 2**(ds_level - level)
+
+    count = 0
+    for x, y in slide.get_roi_patch_positions(level, stride, patch_side, ds_level, force_not_excluded=True):
+        y_ds = y // ds
+        x_ds = x // ds
+        y_ds_end = (y + patch_side) // ds
+        x_ds_end = (x + patch_side) // ds
+        test_mask[y_ds:y_ds_end, x_ds:x_ds_end] = True
+        count += 1
+    print('{} patches extracted.'.format(count))
+
+    ds_mask = slide.get_roi_mask(ds_level)
+
+    f, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
+    axarr[0].imshow(ds_mask)
+    axarr[1].imshow(test_mask)
+    plt.show()
+
 
 if __name__ == '__main__':
-    __test_get_roi_patch_positions()
+    __test_get_metastases_roi_patch_positions()
