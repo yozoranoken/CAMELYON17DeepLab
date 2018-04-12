@@ -32,11 +32,19 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--output-dir',
-    help='Path to write output directory.',
+    '--output-parent-dir',
+    help='Parent directory to write output directory.',
     type=Path,
     default=os.getcwd(),
-    metavar='OUTPUT_DIR',
+    metavar='OUTPUT_PARENT_DIR',
+)
+
+parser.add_argument(
+    '--output-folder-name',
+    help='Name of output directory',
+    type=str,
+    default='WSIThumbs',
+    metavar='OUTPUT_FOLDER_NAME',
 )
 
 parser.add_argument(
@@ -49,7 +57,8 @@ parser.add_argument(
 
 
 def main(args):
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = args.output_parent_dir / args.output_folder_name
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     wsi_data = parse_dataset(args.data_list_file)
 
@@ -70,7 +79,7 @@ def main(args):
         axarr[0].imshow(image)
         axarr[1].imshow(merged_mask)
         fig.savefig(
-            str(args.output_dir / (wd.name + '.png')),
+            str(output_dir / (wd.name + '.png')),
             dpi=300,
             bbox_inches='tight',
         )
