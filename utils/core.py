@@ -180,6 +180,8 @@ class WSIData:
         wsi_img = self.get_full_wsi_image(level)
         wsi_img_np = np.array(wsi_img, dtype=np.uint8)
         roi_mask = self._roi_threshold(wsi_img_np)
+        metastases_roi_mask = self.get_metastases_mask(level)
+        roi_mask[np.where(metastases_roi_mask)] = True
         return roi_mask
 
 
