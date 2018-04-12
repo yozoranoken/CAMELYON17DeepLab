@@ -77,7 +77,7 @@ def main(args):
         fig, axarr = plt.subplots(1, 2, sharex=True, sharey=True)
         plt.suptitle(wd.name, fontsize=20)
         axarr[0].imshow(image)
-        axarr[1].imshow(merged_mask)
+        axarr[1].imshow(merged_mask, cmap='magma')
         fig.savefig(
             str(output_dir / (wd.name + '.png')),
             dpi=300,
