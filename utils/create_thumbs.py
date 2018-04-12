@@ -65,8 +65,8 @@ def main(args):
     level = args.level_downsample
 
     while wsi_data:
-        print('Writing {}...'.format(wd.name), end='\r')
         wd = wsi_data.pop(0)
+        print('Writing {}...'.format(wd.name), end='\r')
         general_roi = wd.get_roi_mask(level)
         metastases_mask = wd.get_metastases_mask(level)
         merged_mask = np.full(general_roi.shape, 0)
