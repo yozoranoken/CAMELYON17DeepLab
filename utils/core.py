@@ -251,7 +251,7 @@ class WSIData:
         if self._label_slide is not None:
             label_img = self._label_slide.read_region(*args)
             label_np = np.array(label_img.convert('L'))
-            label_np = np.ma.masked_greater(label_np, 0).mask
+            label_np = label_np > 0
         else:
             label_np = np.full((w, h), False)
 
@@ -397,7 +397,7 @@ def __test_relative_downsample_sizes():
 def __test_get_roi_patch_positions():
     data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data.csv'
     wsi_data = parse_dataset(data_list_path_s)
-    slide = wsi_data[88]
+    slide = wsi_data[9]
 
     level = 2
     stride = 256
@@ -408,7 +408,6 @@ def __test_get_roi_patch_positions():
     test_mask = np.full((h, w), False)
     ds = 2**(ds_level - level)
 
-    count = 0
     for x, y in slide.get_roi_patch_positions(level, stride, patch_side, ds_level):
         y_lvl = y // 2**level
         x_lvl = x // 2**level
@@ -417,15 +416,6 @@ def __test_get_roi_patch_positions():
         y_ds_end = (y_lvl + patch_side) // ds
         x_ds_end = (x_lvl + patch_side) // ds
         test_mask[y_ds:y_ds_end, x_ds:x_ds_end] = True
-
-        if count < 20:
-            print(x, y)
-            patch, label = slide.read_region_and_label((x, y), level, dim)
-            save_patch(patch, Path('/tmp') / 'sample_patch_{}.jpeg'.format(count))
-            save_label(patch, Path('/tmp') / 'sample_label_{}.mat'.format(count))
-
-        count += 1
-    print(count)
 
     ds_mask = slide.get_roi_mask(ds_level)
 
