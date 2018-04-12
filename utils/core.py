@@ -8,6 +8,8 @@ import sys
 from matplotlib import pyplot as plt
 import numpy as np
 from openslide import OpenSlide
+from PIL import Image
+from scipy import io as sio
 from skimage import morphology
 from skimage import transform
 from skimage.color import rgb2hsv
@@ -257,11 +259,13 @@ class WSIData:
 
     def _get_roi_patch_positions(self, level, get_roi, stride=256,
                                  patch_side=513, ds_level=5):
+        '''Positions returned are in level 0.'''
         assert ds_level > level, 'level must be less than ds_level'
 
         width, height = self._wsi_slide.level_dimensions[level]
         ds_roi = get_roi(ds_level)
         ds = 2**(ds_level - level)
+        upscale_factor = 2**level
 
         for y in range(0, math.ceil(height / stride) * stride, stride):
             for x in range(0, math.ceil(width / stride) * stride, stride):
@@ -273,7 +277,7 @@ class WSIData:
 
                 if (np.sum(roi_patch) / roi_patch.size >
                     _ROI_PATCH_COVER_PERCENTAGE):
-                    yield x, y
+                    yield x * upscale_factor, y * upscale_factor
 
 
     def get_roi_patch_positions(self, level, stride=256, patch_side=513,
@@ -347,6 +351,15 @@ def parse_dataset(filelist_path):
     return wsi_data
 
 
+def save_patch(patch_np, save_path, img_format='JPEG'):
+    img = Image.fromarray(patch_np)
+    img.save(str(save_path), img_format)
+
+
+def save_label(label_np, save_path):
+    sio.savemat(str(save_path), {'data': label_np})
+
+
 def get_logger(name):
     logfilename = name.lower().replace(' ', '_') + '.log'
     logger = logging.getLogger(name)
@@ -384,11 +397,12 @@ def __test_relative_downsample_sizes():
 def __test_get_roi_patch_positions():
     data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data.csv'
     wsi_data = parse_dataset(data_list_path_s)
-    slide = wsi_data[0]
+    slide = wsi_data[88]
 
     level = 2
     stride = 256
     patch_side = 513
+    dim = patch_side, patch_side
     ds_level = 5
     w, h = slide.get_level_dimension(ds_level)
     test_mask = np.full((h, w), False)
@@ -396,11 +410,20 @@ def __test_get_roi_patch_positions():
 
     count = 0
     for x, y in slide.get_roi_patch_positions(level, stride, patch_side, ds_level):
-        y_ds = y // ds
-        x_ds = x // ds
-        y_ds_end = (y + patch_side) // ds
-        x_ds_end = (x + patch_side) // ds
+        y_lvl = y // 2**level
+        x_lvl = x // 2**level
+        y_ds = y_lvl  // ds
+        x_ds = x_lvl // ds
+        y_ds_end = (y_lvl + patch_side) // ds
+        x_ds_end = (x_lvl + patch_side) // ds
         test_mask[y_ds:y_ds_end, x_ds:x_ds_end] = True
+
+        if count < 20:
+            print(x, y)
+            patch, label = slide.read_region_and_label((x, y), level, dim)
+            save_patch(patch, Path('/tmp') / 'sample_patch_{}.jpeg'.format(count))
+            save_label(patch, Path('/tmp') / 'sample_label_{}.mat'.format(count))
+
         count += 1
     print(count)
 
@@ -444,4 +467,4 @@ def __test_get_metastases_roi_patch_positions():
 
 
 if __name__ == '__main__':
-    __test_get_metastases_roi_patch_positions()
+    __test_get_roi_patch_positions()
