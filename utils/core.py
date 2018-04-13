@@ -214,7 +214,11 @@ class WSIData:
             label_np = label_np[:min(wsi_h, label_h), :min(wsi_w, label_w)]
             self._mark_metastases_regions_in_label(metastases_mask, label_np)
 
-        return metastases_mask
+        return metastases_mask, label_np
+
+
+    def get_metastases_mask(self, level):
+        return self._get_metastases_mask(level)[0]
 
 
     def read_region_and_label(self, coordinates, level, dimension):
