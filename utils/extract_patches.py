@@ -142,15 +142,16 @@ def show_info(args):
     lg.info('Size of data per WSI:')
     while wsi_data:
         slide = wsi_data.pop(0)
-        count = count_patches(slide, *pos_args)
+        count = count_patches(slide, *pos_args) * 5
         total_patch_count += count
-        sz_GB = count * 5 * avg_data_B / 1024**3
+        sz_GB = count * avg_data_B / 1024**3
         total_sz_GB += sz_GB
         s = ''
         s += ' ' * 2
         s += slide.name
         s += ' ' + ('-' * (40 - len(slide.name))) + ' '
-        s += '{} tiles ({:.3f} GB)'.format(count, sz_GB)
+        s += '{} tiles ({:.3f} GB); '.format(count, sz_GB)
+        s += '[{}w x {}h]'.format(*slide.get_level_dimension(level))
         lg.info(s)
     lg.info('Total: %s tiles (%s GB)', total_patch_count,
             round(total_sz_GB, 4))
@@ -206,11 +207,14 @@ def extract_patches(args):
         pos_args = level, args.stride, args.patch_side
 
         lg.info('[WSI %s] - Counting patches...', slide.name)
-        patch_count = count_patches(slide, *pos_args)
+        centre_count = len(centre_samples)
+        patch_count = count_patches(slide, *pos_args) * centre_count
 
         lg.info('[WSI %s] - Extracting %s patches', slide.name, patch_count)
         for i, pos in enumerate(slide.get_roi_patch_positions(*pos_args)):
-            lg.info('[WSI %s] - Patch (%s / %s)', slide.name, i, patch_count)
+            idx = (i + 1) * centre_count
+            lg.info('[WSI %s] - Patch (%s / %s)', slide.name, idx,
+                    patch_count)
     #       get patch and label
             patch, label = slide.read_region_and_label(pos, level, dim)
     #       ignore when low variance
@@ -257,4 +261,3 @@ def main(args):
 
 if __name__ == '__main__':
     main(parser.parse_args())
-
