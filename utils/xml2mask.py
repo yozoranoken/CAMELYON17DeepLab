@@ -49,7 +49,9 @@ _LABEL_MAP = {
     '_1': 1,
     'normal': 2,
     '_2': 2,
+    'ignore': 3,
 }
+
 
 def main(args):
     logger = get_logger('XML-to-MASK')
