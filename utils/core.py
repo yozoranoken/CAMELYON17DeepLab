@@ -48,10 +48,11 @@ class WSIData:
         self._centre = centre
         self._name = tif_path.stem
 
-    def _load_label_slide(self):
+    def _get_label_slide(self):
         if self._label_slide is None and self._label_tif_path is not None:
             self._label_slide = (self._label_tif_path and
                                  OpenSlide(str(self._label_tif_path)))
+        return self._label_slide
 
     def _roi_threshold(self, img_np):
         '''Performs thresholding on the WSI image to extract the tissue region.
@@ -182,12 +183,13 @@ class WSIData:
         wsi_img = self.get_full_wsi_image(level)
         wsi_img_np = np.array(wsi_img, dtype=np.uint8)
         roi_mask = self._roi_threshold(wsi_img_np)
-        metastases_roi_mask = self.get_metastases_mask(level)
+        metastases_roi_mask, label_np = self._get_metastases_mask(level)
         roi_mask[np.where(metastases_roi_mask)] = True
+        roi_mask[np.where(label_np == 3)] = False
         return roi_mask
 
 
-    def get_metastases_mask(self, level):
+    def _get_metastases_mask(self, level):
         '''Get metastases ROI of the WSI.
 
         Parameters
@@ -203,10 +205,10 @@ class WSIData:
         wsi_w, wsi_h = self._wsi_slide.level_dimensions[level]
         metastases_mask = np.full((wsi_h, wsi_w), False)
 
-        self._load_label_slide()
-        if self._label_slide is not None:
-            label_dim = self._label_slide.level_dimensions[level]
-            label_img = self._label_slide.read_region((0, 0), level, label_dim)
+        label_slide = self._get_label_slide()
+        if label_slide is not None:
+            label_dim = label_slide.level_dimensions[level]
+            label_img = label_slide.read_region((0, 0), level, label_dim)
             label_np = np.array(label_img.convert('L'))
             label_w, label_h = label_dim
             label_np = label_np[:min(wsi_h, label_h), :min(wsi_w, label_w)]
@@ -247,9 +249,9 @@ class WSIData:
         patch_img = self._wsi_slide.read_region(*args)
         patch_np = np.array(patch_img.convert('RGB'))
 
-        self._load_label_slide()
-        if self._label_slide is not None:
-            label_img = self._label_slide.read_region(*args)
+        label_slide = self._get_label_slide()
+        if label_slide is not None:
+            label_img = label_slide.read_region(*args)
             label_np = np.array(label_img.convert('L'))
             label_np = label_np > 0
         else:
