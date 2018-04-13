@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 import csv
 import logging
+import os
 from pathlib import Path
 import sys
 
@@ -54,7 +55,10 @@ _LABEL_MAP = {
 
 
 def main(args):
-    logger = get_logger('XML-to-MASK')
+    pid = os.getpid()
+    print('Running with PID', pid)
+
+    logger = get_logger('XML-to-MASK-{}'.format(pid))
 
     output_dir_path = args.output_parent_dir / args.output_folder_name
     logger.info('Creating output directory at %s', str(output_dir_path))
