@@ -230,7 +230,7 @@ class WSIData:
         Parameters
         ----------
         coordinates: (x: int, y: int)
-            Coordinates in the WSI at level 0.
+            Coordinates in the WSI at level 0. Upper-left of the region.
 
         level: int
             Level downsample to read the WSI. (values: 0..8)
@@ -248,20 +248,22 @@ class WSIData:
         '''
         w, h = dimension
         x, y = coordinates
-        cx, cy = x - (w * 2**level // 2), y - (h * 2**level // 2)
-        args = (cx, cy), level, dimension
+
+        ## coordinate is at the center of the patches
+        # x, y = x - (w * 2**level // 2), y - (h * 2**level // 2)
+        args = (x, y), level, dimension
+
         patch_img = self._wsi_slide.read_region(*args)
         patch_np = np.array(patch_img.convert('RGB'))
+        metastases_np = np.full((w, h), False)
 
         label_slide = self._get_label_slide()
         if label_slide is not None:
             label_img = label_slide.read_region(*args)
             label_np = np.array(label_img.convert('L'))
-            label_np = label_np > 0
-        else:
-            label_np = np.full((w, h), False)
+            self._mark_metastases_regions_in_label(metastases_np, label_np)
 
-        return patch_np, label_np
+        return patch_np, metastases_np
 
     def _get_roi_patch_positions(self, level, get_roi, stride=256,
                                  patch_side=513, ds_level=5):
