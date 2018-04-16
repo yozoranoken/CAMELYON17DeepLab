@@ -282,6 +282,8 @@ class WSIData:
             label_w, label_h = label_dim
             label_np = label_np[:min(wsi_h, label_h), :min(wsi_w, label_w)]
             self._mark_metastases_regions_in_label(metastases_mask, label_np)
+        else:
+            label_np = np.full((wsi_h, wsi_w), 0)
 
         return metastases_mask, label_np
 
