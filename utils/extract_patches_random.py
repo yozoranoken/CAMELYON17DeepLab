@@ -15,6 +15,7 @@ from skimage.io import imsave
 
 from core import parse_dataset
 from core import get_logger
+from core import get_normalizers
 import stain_utils as utils
 import stainNorm_Vahadane
 
@@ -134,25 +135,25 @@ def transform_patch_and_label(patch, label, crop_side):
     return patch_t, label_t
 
 
-def get_normalizers():
-    sample_dir = Path('../sampled_tiles_from_centers')
-    centre_samples = tuple(map(
-        lambda sample: utils.read_image(str(sample_dir / sample)),
-        (
-            'centre_0_patient_006_node_1.jpeg',
-            'centre_1_patient_024_node_2.jpeg',
-            'centre_2_patient_056_node_1.jpeg',
-            'centre_3_patient_066_node_1.jpeg',
-            'centre_4_patient_097_node_3.jpeg',
-        ),
-    ))
+# def get_normalizers():
+#     sample_dir = Path('../sampled_tiles_from_centers')
+#     centre_samples = tuple(map(
+#         lambda sample: utils.read_image(str(sample_dir / sample)),
+#         (
+#             'centre_0_patient_006_node_1.jpeg',
+#             'centre_1_patient_024_node_2.jpeg',
+#             'centre_2_patient_056_node_1.jpeg',
+#             'centre_3_patient_066_node_1.jpeg',
+#             'centre_4_patient_097_node_3.jpeg',
+#         ),
+#     ))
 
-    normalizers = tuple(stainNorm_Vahadane.Normalizer()
-                    for i in range(len(centre_samples)))
-    for sample, normalizer in zip(centre_samples, normalizers):
-        normalizer.fit(sample)
+#     normalizers = tuple(stainNorm_Vahadane.Normalizer()
+#                     for i in range(len(centre_samples)))
+#     for sample, normalizer in zip(centre_samples, normalizers):
+#         normalizer.fit(sample)
 
-    return normalizers
+#     return normalizers
 
 
 def normalize_patches(patches, normalizers, base_centre):
@@ -163,11 +164,11 @@ def normalize_patches(patches, normalizers, base_centre):
     for i, x in enumerate(range(0, width, patch_side)):
         batch_base_image[:, x:x + patch_side, :] = patches[i]
 
-    for i, n in enumerate(normalizers):
-        if i == base_centre:
+    for centre, normalizer in normalizers.items():
+        if centre == base_centre:
             normalized = batch_base_image
         else:
-            normalized = n.transform(batch_base_image)
+            normalized = normalizer.transform(batch_base_image)
 
         yield list(normalized[:, x:x + patch_side, :]
                    for x in range(0, width, patch_side))

@@ -1,8 +1,10 @@
+from collections.abc import Mapping
 import csv
 from enum import IntEnum
 import logging
 import math
 from pathlib import Path
+from random import randint
 import sys
 
 from matplotlib import pyplot as plt
@@ -16,20 +18,71 @@ from skimage.color import rgb2hsv
 from skimage.color import rgb2gray
 from skimage.filters import threshold_otsu
 from skimage.filters.rank import median
+from skimage.io import imread
+
+import stainNorm_Vahadane
 
 
 _SMALL_HOLE_AREA = 128
 _SMALL_OBJECT_AREA = 128
 _MEDIAN_DISK = 17
 _ROI_PATCH_COVER_PERCENTAGE = 0.4
+_CENTRE_DIR = Path('./centre_samples')
 
 
-class Centre(IntEnum):
-    CENTRE_0 = 0
-    CENTRE_1 = 1
-    CENTRE_2 = 2
-    CENTRE_3 = 3
-    CENTRE_4 = 4
+class _StainNormalizer:
+
+    class Centre(IntEnum):
+        CENTRE_0 = 0
+        CENTRE_1 = 1
+        CENTRE_2 = 2
+        CENTRE_3 = 3
+        CENTRE_4 = 4
+
+    def __init__(self, img_path, centre_id):
+        self._centre_id = centre_id
+        self._normalizer = stainNorm_Vahadane.Normalizer()
+        self._normalizer.fit(imread(str(img_path)))
+
+
+    @property
+    def centre_id(self):
+        return self._centre_id
+
+
+    def transform(self, img):
+        return self._normalizer.transform(img)
+
+
+class _NormalizerGroup(Mapping):
+    def __init__(self):
+        self._normalizers = {c: [] for c in _StainNormalizer.Centre}
+
+        centre_dirs = [_CENTRE_DIR / ('centre_' + str(int(c)))
+                       for c in _StainNormalizer.Centre]
+
+        for c, cdir in zip(_StainNormalizer.Centre, centre_dirs):
+            for img_path in cdir.iterdir():
+                normalizer = _StainNormalizer(img_path, c)
+                self._normalizers[c].append(normalizer)
+
+
+    def __getitem__(self, centre_id):
+        normalizer = self._normalizers[centre_id]
+        n = len(normalizer)
+        return normalizer[randint(0, n - 1)]
+
+
+    def __len__(self):
+        return len(self._normalizers)
+
+
+    def __iter__(self):
+        return iter(self._normalizers)
+
+
+def get_normalizers():
+    return _NormalizerGroup()
 
 
 class WSIData:
@@ -42,7 +95,7 @@ class WSIData:
         self._label_xml_path = label_xml_path
         self._label_slide = None
 
-        if not isinstance(centre, Centre):
+        if not isinstance(centre, _StainNormalizer.Centre):
             raise TypeError('centre must be an instance of {}.Centre.'
                             .format(self.__class__.__name__))
         self._centre = centre
@@ -368,7 +421,7 @@ def parse_dataset(filelist_path):
 
             kwargs = {
                 'tif_path': tif_path,
-                'centre': Centre(int(centre)),
+                'centre': _StainNormalizer.Centre(int(centre)),
                 'label_tif_path': label_tif_path,
                 'label_xml_path': label_xml_path,
                 'is_excluded': bool(int(is_excluded)),
@@ -485,5 +538,11 @@ def __test_get_metastases_roi_patch_positions():
     plt.show()
 
 
+def __test_load_centres():
+    normalizers = get_normalizers()
+    print(len(normalizers))
+    for n in normalizers:
+        print(n)
+
 if __name__ == '__main__':
-    __test_get_roi_patch_positions()
+    __test_load_centres()
