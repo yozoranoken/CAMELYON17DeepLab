@@ -23,10 +23,10 @@ import stainNorm_Vahadane
 _SAMPLE_SIZES = {
     'normal': {
         'positive': 0,
-        'negative': 400,
+        'negative': 200,
     },
     'tumor': {
-        'positive': 1725,
+        'positive': 958,
         'negative': 200,
     }
 }
