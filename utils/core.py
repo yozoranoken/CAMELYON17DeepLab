@@ -131,7 +131,7 @@ class WSIData:
 
     @property
     def is_excluded(self):
-        return self._is_exluded
+        return self._is_excluded
 
     def get_full_wsi_image(self, level):
         '''Returns the whole WSI as an RGB image.
@@ -165,6 +165,22 @@ class WSIData:
             Dimension of the WSI.
         '''
         return self._wsi_slide.level_dimensions[level]
+
+
+    def get_level_downsample(self, level):
+        '''Returns the dimensions of the WSI for a given level.
+
+        Parameters
+        ----------
+        level: int
+            Level downsample to get dimension. (values: 0..8)
+
+        Returns
+        -------
+        (width: int, height: int)
+            Dimension of the WSI.
+        '''
+        return self._wsi_slide.level_downsamples[level]
 
 
     def get_roi_mask(self, level):
@@ -302,6 +318,11 @@ class WSIData:
             patch_side,
             ds_level,
         )
+
+    def close(self):
+        self._wsi_slide.close()
+        self._label_slide is not None and self._label_slide.close()
+
 
     def __repr__(self):
         return '<Centre: {}, Name: {}>'.format(self._centre, self._name)
