@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 import csv
+from enum import Enum
 from enum import IntEnum
 import logging
 import math
@@ -28,6 +29,11 @@ _SMALL_OBJECT_AREA = 128
 _MEDIAN_DISK = 17
 _ROI_PATCH_COVER_PERCENTAGE = 0.4
 _CENTRE_DIR = Path('./centre_samples')
+
+
+class ResourceGroup(Enum):
+    CAMELYON16 = 'CAMELYON16'
+    CAMELYON17 = 'CAMELYON17'
 
 
 class _StainNormalizer:
@@ -87,13 +93,24 @@ def get_normalizers():
 
 class WSIData:
 
-    def __init__(self, tif_path, centre, is_excluded, label_tif_path=None, label_xml_path=None):
+    def __init__(
+            self,
+            tif_path,
+            centre,
+            is_excluded,
+            resource_group,
+            label_tif_path=None,
+            label_xml_path=None,
+            patient=None,
+            ):
         self._wsi_slide = OpenSlide(str(tif_path))
         self._tif_path = tif_path
         self._is_excluded = is_excluded
         self._label_tif_path = label_tif_path
         self._label_xml_path = label_xml_path
         self._label_slide = None
+        self._patient = patient
+        self._resource_group = resource_group
 
         if not isinstance(centre, _StainNormalizer.Centre):
             raise TypeError('centre must be an instance of {}.Centre.'
@@ -185,6 +202,14 @@ class WSIData:
     @property
     def is_excluded(self):
         return self._is_excluded
+
+    @property
+    def patient(self):
+        return self._patient
+
+    @property
+    def resource_group(self):
+        return self._resource_group
 
     def get_full_wsi_image(self, level):
         '''Returns the whole WSI as an RGB image.
@@ -385,6 +410,7 @@ class WSIData:
 
 _CENTRE_STR_VALS = tuple(str(i) for i in range(5))
 _BOOL_STR_VALS = ('0', '1')
+_RESOURCE_GROUPS_S = (rg.value for rg in ResourceGroup)
 
 def parse_dataset(filelist_path):
     '''Parse data from CSV file to a list of WSIData.
@@ -406,11 +432,15 @@ def parse_dataset(filelist_path):
     with open(str(filelist_path)) as csvfile:
         csvreader = csv.reader(filter(lambda row: row[0]!='#', csvfile))
         for i, line in enumerate(csvreader):
-            (tif_path, label_tif_path, label_xml_path, release_group,
-             centre, is_excluded) = line
+            (tif_path, label_tif_path, label_xml_path, resource_group,
+             centre, is_excluded, patient) = line
             tif_path = Path(tif_path)
+
             label_tif_path = (label_tif_path or None) and Path(label_tif_path)
             label_xml_path = (label_xml_path or None) and Path(label_xml_path)
+
+            patient = int(patient)
+            patient = None if patient == -1 else patient
 
             if centre not in _CENTRE_STR_VALS:
                 raise ValueError(
@@ -421,12 +451,19 @@ def parse_dataset(filelist_path):
                 raise ValueError('Skipping row {}; {} not a 0 or 1'
                                  .format(i, is_excluded))
 
+            if resource_group not in _RESOURCE_GROUPS_S:
+                raise ValueError('Skipping row {}; {} not in {}'
+                                 .format(i, resource_group,
+                                         _RESOURCE_GROUPS_S))
+
             kwargs = {
                 'tif_path': tif_path,
                 'centre': _StainNormalizer.Centre(int(centre)),
                 'label_tif_path': label_tif_path,
                 'label_xml_path': label_xml_path,
                 'is_excluded': bool(int(is_excluded)),
+                'patient': patient,
+                'resource_group': resource_group,
             }
 
             data = WSIData(**kwargs)
@@ -545,6 +582,10 @@ def __test_load_centres():
     print(len(normalizers))
     for n in normalizers:
         print(n)
+
+def __test_parse_dataset():
+    wsi_data = parse_dataset('/media/shishigami/CAMELYONDrive/C17/train/data.csv')
+    print(wsi_data)
 
 if __name__ == '__main__':
     __test_load_centres()
