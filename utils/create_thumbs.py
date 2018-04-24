@@ -58,7 +58,7 @@ parser.add_argument(
 
 
 def main(args):
-    matplotlib.use('agg')
+    plt.switch_backend('agg')
     output_dir = args.output_parent_dir / args.output_folder_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
