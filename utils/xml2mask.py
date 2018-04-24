@@ -44,6 +44,22 @@ parser.add_argument(
     metavar='OUTPUT_PARENT_DIR',
 )
 
+parser.add_argument(
+    '--data-offset',
+    help='Offset from the start of the dataset',
+    default=0,
+    type=int,
+    metavar='DATA_OFFSET',
+)
+
+parser.add_argument(
+    '--count',
+    help='Numer of dataset items to process.',
+    default=-1,
+    type=int,
+    metavar='COUNT',
+)
+
 _LABEL_MAP = {
     'metastases': 1,
     '_0': 1,
@@ -66,7 +82,13 @@ def main(args):
 
     logger.info('Reading WSI data objects.')
 
-    wsi_data = parse_dataset(args.data_list_file)
+    start = args.data_offset
+    wsi_data = parse_dataset(args.data_list_file)[start:]
+
+    count = args.count
+    if count > len(wsi_data):
+        raise ValueError('Offset and count out of bounds.')
+    wsi_data = wsi_data[:count]
 
     while wsi_data:
         data = wsi_data.pop(0)
