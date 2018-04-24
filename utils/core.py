@@ -124,7 +124,8 @@ class WSIData:
                                  OpenSlide(str(self._label_tif_path)))
         return self._label_slide
 
-    def _roi_threshold(self, img_np):
+    @staticmethod
+    def _threshold_sv(img_np):
         '''Performs thresholding on the WSI image to extract the tissue region.
 
         RGB image is converted to HSV color space. The H and S channels are
@@ -162,6 +163,21 @@ class WSIData:
         binary = median(binary, morphology.disk(_MEDIAN_DISK))
 
         return binary.astype(bool)
+
+
+    @staticmethod
+    def _threshold_gray(img_np):
+        binary = np.full(img_np.shape[:2], False)
+        binary[np.where(rgb2gray(img_np) > 0.8)] = True
+        binary = morphology.remove_small_objects(binary, _SMALL_OBJECT_AREA)
+        binary = morphology.remove_small_holes(binary, _SMALL_HOLE_AREA)
+        binary = median(binary, morphology.disk(_MEDIAN_DISK))
+        return binary
+
+
+    def _roi_threshold(self, img_np):
+        # return self._threshold_sv(img_np)
+        return self._threshold_gray(img_np)
 
 
     def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
