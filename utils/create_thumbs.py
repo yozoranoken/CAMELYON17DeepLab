@@ -5,6 +5,7 @@ from pathlib import Path
 
 from core import parse_dataset
 import matplotlib as mpl
+import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -57,6 +58,7 @@ parser.add_argument(
 
 
 def main(args):
+    matplotlib.use('agg')
     output_dir = args.output_parent_dir / args.output_folder_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -84,6 +86,7 @@ def main(args):
             bbox_inches='tight',
         )
         plt.close(fig)
+        wd.close()
         del wd
 
 
