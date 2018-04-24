@@ -410,7 +410,7 @@ class WSIData:
 
 _CENTRE_STR_VALS = tuple(str(i) for i in range(5))
 _BOOL_STR_VALS = ('0', '1')
-_RESOURCE_GROUPS_S = (rg.value for rg in ResourceGroup)
+_RESOURCE_GROUPS_S = tuple(rg.value for rg in ResourceGroup)
 
 def parse_dataset(filelist_path):
     '''Parse data from CSV file to a list of WSIData.
