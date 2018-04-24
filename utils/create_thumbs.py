@@ -5,6 +5,7 @@ from pathlib import Path
 
 from core import parse_dataset
 import matplotlib as mpl
+import matplotlib; matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -84,6 +85,7 @@ def main(args):
             bbox_inches='tight',
         )
         plt.close(fig)
+        wd.close()
         del wd
 
 
