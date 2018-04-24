@@ -271,7 +271,7 @@
 "train/wsis/normal_159.tif","","","CAMELYON16",2,0,-1
 "train/wsis/normal_160.tif","","","CAMELYON16",2,0,-1
 # C17
-"train/wsis/patient_005_node_4.tif","train/ground_truth/masks/patient_004_node_4_Mask.tif","train/ground_truth/xml/patient_004_node_4.xml","CAMELYON17",0,0,4
+"train/wsis/patient_004_node_4.tif","train/ground_truth/masks/patient_004_node_4_Mask.tif","train/ground_truth/xml/patient_004_node_4.xml","CAMELYON17",0,0,4
 "train/wsis/patient_009_node_1.tif","train/ground_truth/masks/patient_009_node_1_Mask.tif","train/ground_truth/xml/patient_009_node_1.xml","CAMELYON17",0,0,9
 "train/wsis/patient_010_node_4.tif","train/ground_truth/masks/patient_010_node_4_Mask.tif","train/ground_truth/xml/patient_010_node_4.xml","CAMELYON17",0,0,10
 "train/wsis/patient_012_node_0.tif","train/ground_truth/masks/patient_012_node_0_Mask.tif","train/ground_truth/xml/patient_012_node_0.xml","CAMELYON17",0,0,12
