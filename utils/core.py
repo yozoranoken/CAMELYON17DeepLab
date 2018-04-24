@@ -143,16 +143,20 @@ class WSIData:
             ROI mask of the WSI.
         '''
         img_hsv = rgb2hsv(img_np)
-        channel_h = img_hsv[:, :, 0]
+        # channel_h = img_hsv[:, :, 0]
         channel_s = img_hsv[:, :, 1]
+        channel_v = img_hsv[:, :, 2]
 
-        thresh_h = threshold_otsu(channel_h)
+        # thresh_h = threshold_otsu(channel_h)
         thresh_s = threshold_otsu(channel_s)
+        thresh_v = threshold_otsu(channel_v)
 
-        binary_h = channel_h > thresh_h
-        binary_s = channel_s > thresh_s
+        # binary_h = channel_h > thresh_h
+        binary_s = channel_s > min(thresh_s, 0.1)
+        binary_v = channel_s > min(thresh_v, 0.2)
 
-        binary = np.bitwise_and(binary_h, binary_s)
+        # binary = np.bitwise_and(binary_h, binary_s)
+        binary = np.bitwise_and(binary_s, binary_v)
         binary = morphology.remove_small_objects(binary, _SMALL_OBJECT_AREA)
         binary = morphology.remove_small_holes(binary, _SMALL_HOLE_AREA)
         binary = median(binary, morphology.disk(_MEDIAN_DISK))
