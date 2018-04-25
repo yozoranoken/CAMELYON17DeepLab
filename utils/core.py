@@ -166,6 +166,43 @@ class WSIData:
 
 
     @staticmethod
+    def _threshold_hs(img_np):
+        '''Performs thresholding on the WSI image to extract the tissue region.
+
+        RGB image is converted to HSV color space. The H and S channels are
+        then thresholded via Otsu's Threshold, then combined via bitwise AND.
+        Morphological transormation was applied by removing small holes and
+        regions, and was filtered using median blur.
+
+        Parameters
+        ----------
+        img_np: np.uint8[H, W, 3] np.array
+            RGB WSI as an np.array image
+
+        Returns
+        -------
+        bool[H, W] np.array
+            ROI mask of the WSI.
+        '''
+        img_hsv = rgb2hsv(img_np)
+        channel_h = img_hsv[:, :, 0]
+        channel_s = img_hsv[:, :, 1]
+
+        thresh_h = threshold_otsu(channel_h)
+        thresh_s = threshold_otsu(channel_s)
+
+        binary_h = channel_h > thresh_h
+        binary_s = channel_s > thresh_s
+
+        binary = np.bitwise_and(binary_h, binary_s)
+        binary = morphology.remove_small_objects(binary, _SMALL_OBJECT_AREA)
+        binary = morphology.remove_small_holes(binary, _SMALL_HOLE_AREA)
+        binary = median(binary, morphology.disk(_MEDIAN_DISK))
+
+        return binary.astype(bool)
+
+
+    @staticmethod
     def _threshold_gray(img_np):
         binary = np.full(img_np.shape[:2], False)
         binary[np.where(rgb2gray(img_np) < 0.8)] = True
@@ -177,7 +214,8 @@ class WSIData:
 
     def _roi_threshold(self, img_np):
         # return self._threshold_sv(img_np)
-        return self._threshold_gray(img_np)
+        # return self._threshold_gray(img_np)
+        return self._threshold_hs(img_np)
 
 
     def _mark_metastases_regions_in_label(self, blank_mask_np, label_np):
