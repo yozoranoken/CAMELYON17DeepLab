@@ -560,6 +560,30 @@ def get_logger(name):
     return logger
 
 
+def image_variance(image):
+    # split the image into its respective RGB components
+    R = image[:, :, 0]
+    G = image[:, :, 1]
+    B = image[:, :, 2]
+
+    # compute rg = R - G
+    rg = np.absolute(R - G)
+
+    # compute yb = 0.5 * (R + G) - B
+    yb = np.absolute(0.5 * (R + G) - B)
+
+    # compute the mean and standard deviation of both `rg` and `yb`
+    (rbMean, rbStd) = (np.mean(rg), np.std(rg))
+    (ybMean, ybStd) = (np.mean(yb), np.std(yb))
+
+    # combine the mean and standard deviations
+    stdRoot = np.sqrt((rbStd ** 2) + (ybStd ** 2))
+    meanRoot = np.sqrt((rbMean ** 2) + (ybMean ** 2))
+
+    # derive the "colorfulness" metric and return it
+    return stdRoot + (0.3 * meanRoot)
+
+
 def __test_relative_downsample_sizes():
     data_list_path_s = '/media/shishigami/6CC13AD35BD48D86/C16Data/train/data.csv'
     wsi_data = parse_dataset(data_list_path_s)
@@ -665,5 +689,38 @@ def __test_read_region_and_label():
     plt.show()
 
 
+def __test_image_variance():
+    wsi_data = parse_dataset('/media/shishigami/6CC13AD35BD48D86/C16Data/train/data_test.csv')
+    coords = randint(45300, 50780), randint(102700, 108600)
+    coords = randint(62742, 88063), randint(4870, 29340)
+    coords = 69560, 120800
+    slide = wsi_data[1]
+    dim = (768, 768)
+    img_1, label_1 = slide.read_region_and_label(coords, 1, dim)
+
+    from scipy.ndimage import measurements
+
+    print(measurements.variance(img_1))
+    print(image_variance(img_1))
+    plt.imshow(img_1)
+    plt.show()
+
+def __test_image_variance_2():
+    from scipy.ndimage import measurements
+    wsi_data = parse_dataset('/media/shishigami/6CC13AD35BD48D86/C16Data/train/data_test.csv')
+    slide = wsi_data[1]
+    dim = (768, 768)
+
+    tot = 0
+    for i in range(30):
+        coords = randint(45300, 50780), randint(102700, 108600)
+        # coords = randint(62742, 88063), randint(4870, 29340)
+        img_1, label_1 = slide.read_region_and_label(coords, 1, dim)
+        print(i, end='\r')
+        tot += image_variance(img_1)
+    print(tot / i)
+
+
 if __name__ == '__main__':
-    __test_read_region_and_label()
+    # __test_image_variance_2()
+    __test_image_variance()

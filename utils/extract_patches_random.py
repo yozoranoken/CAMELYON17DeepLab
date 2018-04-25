@@ -4,7 +4,9 @@ import gc
 from math import ceil
 import os
 from pathlib import Path
+from random import randint
 from uuid import uuid4
+import sys
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -16,6 +18,7 @@ from skimage.io import imsave
 from core import parse_dataset
 from core import get_logger
 from core import get_normalizers
+from core import image_variance
 import stain_utils as utils
 import stainNorm_Vahadane
 
@@ -26,17 +29,18 @@ _SAMPLE_SIZES = {
         'negative': 200,
     },
     'tumor': {
-        'positive': 958,
+        'positive': 1500,
         'negative': 200,
     }
 }
+_MIN_TUMOR_PATCHES = 20
 _MASK_LEVEL = 5
 _FILENAME = '{name}_{uuid}_{idx:03d}_{centre}.{ext}'
 _OUTPUT_TUMOR_DIRNAME = 'tumor'
 _OUTPUT_NORMAL_DIRNAME = 'normal'
 _PATCHES_DIRNAME = 'data'
 _LABELS_DIRNAME = 'labels'
-_COLOR_VARIANCE_THRESHOLD = 500
+_COLOR_VARIANCE_THRESHOLD = 0.05
 
 
 def collect_arguments():
@@ -73,7 +77,7 @@ def collect_arguments():
         help='Length of the side of the square patch.',
         type=int,
         metavar='PATCH_SIDE',
-        default=513,
+        default=768,
     )
 
     parser.add_argument(
@@ -185,14 +189,16 @@ def sample_patches(
         batch_size,
         lg):
 
+    sample_scale_factor = 2**_MASK_LEVEL
     sample_patch_side = ceil(2**0.5 * patch_side)
     sample_patch_dim = sample_patch_side, sample_patch_side
     center_offset = ceil((sample_patch_side * 2**level) / 2)
-    data_points = np.argwhere(roi_mask) * 2**_MASK_LEVEL
+    data_points = np.argwhere(roi_mask) * sample_scale_factor
 
     centre_count = len(normalizers)
     lg.info('[%s] - Sampling %s patches.',
             slide.name, sample_size * centre_count)
+
 
     patches = []
     labels = []
@@ -200,11 +206,13 @@ def sample_patches(
     while sample_count < sample_size:
         idx = np.random.randint(0, data_points.shape[0])
         cy, cx = data_points[idx]
+        cy, cx = (cy + randint(0, sample_scale_factor),
+                  cx + randint(0, sample_scale_factor))
         cy, cx = cy - center_offset, cx - center_offset
         patch, label = slide.read_region_and_label(
             (cx, cy), level, sample_patch_dim)
 
-        color_variance = measurements.variance(patch)
+        color_variance = image_variance(patch)
         if color_variance < _COLOR_VARIANCE_THRESHOLD:
             continue
 
@@ -286,6 +294,11 @@ def main():
             np.invert(positive_roi),
         )
 
+        positive_area_0 = np.argwhere(positive_roi).shape[0]
+        positive_area_0 = positive_area_0 * (2**_MASK_LEVEL)**2
+        patch_area_0 = (patch_side * 2**level)**2
+        approx_positive_count = round(positive_area_0 / patch_area_0) * 4
+
         sampling_kwargs = {
             'patch_side': patch_side,
             'level': level,
@@ -297,7 +310,9 @@ def main():
         if slide.label_xml_path is not None:
             lg.info('[%s] - Sampling tumor patches.', slide.name)
             sample_patches(
-                _SAMPLE_SIZES['tumor']['positive'],
+                max(_MIN_TUMOR_PATCHES,
+                    min(approx_positive_count,
+                        _SAMPLE_SIZES['tumor']['positive'])),
                 positive_roi,
                 output_tumor_dir,
                 **sampling_kwargs,
