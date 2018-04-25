@@ -29,13 +29,13 @@ _SAMPLE_SIZES = {
         'negative': 200,
     },
     'tumor': {
-        'positive': 1500,
+        'positive': 2000,
         'negative': 200,
     }
 }
 _MIN_TUMOR_PATCHES = 20
 _MASK_LEVEL = 5
-_FILENAME = '{name}_{uuid}_{idx:03d}_{centre}.{ext}'
+_FILENAME = '{name}_{uuid}_{idx:05d}_{centre}.{ext}'
 _OUTPUT_TUMOR_DIRNAME = 'tumor'
 _OUTPUT_NORMAL_DIRNAME = 'normal'
 _PATCHES_DIRNAME = 'data'
