@@ -19,6 +19,7 @@ from skimage.color import rgb2hsv
 from skimage.color import rgb2gray
 from skimage.filters import threshold_otsu
 from skimage.filters.rank import median
+from skimage.transform import resize
 from skimage.io import imread
 
 import stainNorm_Vahadane
@@ -400,21 +401,25 @@ class WSIData:
         bool[H, W] np.array
             Label mask for the given region.
         '''
+        scale_factor = 2**level
         w, h = dimension
+        w_0, h_0 = w * scale_factor, h * scale_factor
         x, y = coordinates
 
         ## coordinate is at the center of the patches
         # x, y = x - (w * 2**level // 2), y - (h * 2**level // 2)
-        args = (x, y), level, dimension
-
+        args = (x, y), 0, (w_0, h_0)
         patch_img = self._wsi_slide.read_region(*args)
         patch_np = np.array(patch_img.convert('RGB'))
+        patch_np = resize(patch_np, dimension, mode='reflect')
+
         metastases_np = np.full((w, h), False)
 
         label_slide = self._get_label_slide()
         if label_slide is not None:
             label_img = label_slide.read_region(*args)
             label_np = np.array(label_img.convert('L'))
+            label_np = label_np[::scale_factor, ::scale_factor]
             self._mark_metastases_regions_in_label(metastases_np, label_np)
 
         return patch_np, metastases_np
@@ -645,5 +650,20 @@ def __test_parse_dataset():
     wsi_data = parse_dataset('/media/shishigami/CAMELYONDrive/C17/train/data.csv')
     print(wsi_data)
 
+def __test_read_region_and_label():
+    wsi_data = parse_dataset('/media/shishigami/6CC13AD35BD48D86/C16Data/train/data_test.csv')
+    coords = 53642, 103140
+    slide = wsi_data[0]
+    dim = (768, 768)
+    img_0, label_0 = slide.read_region_and_label(coords, 0, dim)
+    img_1, label_1 = slide.read_region_and_label(coords, 1, dim)
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    axes[0][0].imshow(img_0)
+    axes[0][1].imshow(label_0)
+    axes[1][0].imshow(img_1)
+    axes[1][1].imshow(label_1)
+    plt.show()
+
+
 if __name__ == '__main__':
-    __test_load_centres()
+    __test_read_region_and_label()
