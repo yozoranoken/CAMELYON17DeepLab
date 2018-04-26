@@ -252,7 +252,7 @@ def sample_patches(
                         label_filepath = str(output_dir /
                                             _LABELS_DIRNAME /
                                             label_filepath)
-                        imsave(label_filepath, labels[idx] * 1)
+                        imsave(label_filepath, labels[idx])
 
                     lg.info('[%s] - - Centre %s done.', slide.name, c)
 
