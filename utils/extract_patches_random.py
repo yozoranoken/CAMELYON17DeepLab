@@ -30,11 +30,11 @@ _SAMPLE_SIZES = {
         'negative': 100,
     },
     'tumor': {
-        'positive': 2000,
+        'positive': 5000,
         'negative': 100,
     }
 }
-_MIN_TUMOR_PATCHES = 20
+_MIN_TUMOR_PATCHES = 30
 _MASK_LEVEL = 5
 _FILENAME = '{name}_{uuid}_{idx:05d}_{centre}.{ext}'
 _OUTPUT_TUMOR_DIRNAME = 'tumor'
@@ -306,7 +306,7 @@ def main():
         positive_area_0 = np.argwhere(positive_roi).shape[0]
         positive_area_0 = positive_area_0 * (2**_MASK_LEVEL)**2
         patch_area_0 = (patch_side * 2**level)**2
-        approx_positive_count = round(positive_area_0 / patch_area_0) * 4
+        approx_positive_count = round(positive_area_0 / patch_area_0) * 8
 
         sampling_kwargs = {
             'patch_side': patch_side,
