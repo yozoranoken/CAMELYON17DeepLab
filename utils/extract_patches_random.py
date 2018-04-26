@@ -118,7 +118,8 @@ def transform_patch_and_label(patch, label, crop_side):
     patch_t, label_t = patch.copy(), label.copy()
 
     patch_t = transform.rotate(patch_t, trans['rotation_angle'])
-    label_t = transform.rotate(label_t, trans['rotation_angle'])
+    label_t = transform.rotate(
+        label_t, trans['rotation_angle'], order=0).astype(bool)
 
     if trans['do_transpose']:
         patch_t = np.transpose(patch_t, (1, 0, 2))
@@ -222,7 +223,7 @@ def sample_patches(
 
             patch, label = transform_patch_and_label(
                 patch, label, patch_side)
-            label[np.where(label > 0)] = 1
+            label = label * 1
 
             patches.append(patch)
             labels.append(label)
