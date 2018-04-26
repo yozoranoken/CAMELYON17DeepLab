@@ -54,12 +54,14 @@ def main():
         count = sum(1 for _ in args.label_dir.glob(_LABEL_FILE_GLOB))
 
         for i, label_path in enumerate(sorted(args.label_dir.glob(_LABEL_FILE_GLOB))):
+            img = imread(label_path, as_gray=True)
             try:
-                img = imread(label_path, as_gray=True)
                 t = threshold_otsu(img)
-                img = ((img > t) * 1).astype(np.uint8)
+                img = img > t
             except ValueError:
-                pass
+                img = img.astype(bool)
+
+            img = (img * 1).astype(np.uint8)
 
             imsave(output_dir / label_path.name, img)
 
