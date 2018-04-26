@@ -222,6 +222,7 @@ def sample_patches(
 
             patch, label = transform_patch_and_label(
                 patch, label, patch_side)
+            label[np.where(label > 0)] = 1
 
             patches.append(patch)
             labels.append(label)
