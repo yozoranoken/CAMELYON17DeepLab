@@ -4,6 +4,7 @@ from enum import Enum
 from enum import IntEnum
 import logging
 import math
+import os
 from pathlib import Path
 from random import randint
 import sys
@@ -546,7 +547,7 @@ def save_label(label_np, save_path):
 
 def get_logger(name):
     logfilename = name.lower().replace(' ', '_') + '.log'
-    logger = logging.getLogger(name)
+    logger = logging.getLogger(os.path.join(os.getcwd(), name))
     logger.setLevel(logging.DEBUG)
     fh = logging.FileHandler(logfilename)
     fh.setLevel(logging.DEBUG)
