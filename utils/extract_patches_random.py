@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from random import randint
 from uuid import uuid4
+import warnings
 import sys
 
 from matplotlib import pyplot as plt
@@ -26,10 +27,10 @@ import stainNorm_Vahadane
 _SAMPLE_SIZES = {
     'normal': {
         'positive': 0,
-        'negative': 200,
+        'negative': 300,
     },
     'tumor': {
-        'positive': 5000,
+        'positive': 1000,
         'negative': 200,
     }
 }
@@ -117,7 +118,8 @@ def transform_patch_and_label(patch, label, crop_side):
     patch_t, label_t = patch.copy(), label.copy()
 
     patch_t = transform.rotate(patch_t, trans['rotation_angle'])
-    label_t = transform.rotate(label_t, trans['rotation_angle'])
+    label_t = transform.rotate(
+        label_t, trans['rotation_angle'], order=0).astype(bool)
 
     if trans['do_transpose']:
         patch_t = np.transpose(patch_t, (1, 0, 2))
@@ -200,61 +202,70 @@ def sample_patches(
             slide.name, sample_size * centre_count)
 
 
-    patches = []
-    labels = []
-    sample_count = 0
-    while sample_count < sample_size:
-        idx = np.random.randint(0, data_points.shape[0])
-        cy, cx = data_points[idx]
-        cy, cx = (cy + randint(0, sample_scale_factor),
-                  cx + randint(0, sample_scale_factor))
-        cy, cx = cy - center_offset, cx - center_offset
-        patch, label = slide.read_region_and_label(
-            (cx, cy), level, sample_patch_dim)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        patches = []
+        labels = []
+        sample_count = 0
 
-        color_variance = image_variance(patch)
-        if color_variance < _COLOR_VARIANCE_THRESHOLD:
-            continue
+        while sample_count < sample_size:
+            idx = np.random.randint(0, data_points.shape[0])
+            cy, cx = data_points[idx]
+            cy, cx = (cy + randint(0, sample_scale_factor),
+                    cx + randint(0, sample_scale_factor))
+            cy, cx = cy - center_offset, cx - center_offset
+            patch, label = slide.read_region_and_label(
+                (cx, cy), level, sample_patch_dim)
 
-        patch, label = transform_patch_and_label(
-            patch, label, patch_side)
+            color_variance = image_variance(patch)
+            if color_variance < _COLOR_VARIANCE_THRESHOLD:
+                continue
 
-        patches.append(patch)
-        labels.append(label)
+            patch, label = transform_patch_and_label(
+                patch, label, patch_side)
+            label = label * 1
 
-        if (sample_count + 1) % batch_size == 0 or sample_count == sample_size - 1:
-            uuid = str(uuid4()).replace('-', '_')
-            filename_kwargs = {'name': slide.name, 'uuid': uuid}
-            for c, batch in enumerate(normalize_patches(patches,
-                                                        normalizers,
-                                                        slide.centre)):
-                filename_kwargs['centre'] = c
-                for idx, p in enumerate(batch):
-                    filename_kwargs['idx'] = idx
+            patches.append(patch)
+            labels.append(label)
 
-                    patch_filepath = _FILENAME.format(
-                        ext='jpeg', **filename_kwargs)
-                    patch_filepath = str(output_dir /
-                                         _PATCHES_DIRNAME /
-                                         patch_filepath)
-                    imsave(patch_filepath, p, quality=100)
+            if ((sample_count + 1) % batch_size == 0 or
+                    sample_count == sample_size - 1):
+                uuid = str(uuid4()).replace('-', '_')
+                filename_kwargs = {'name': slide.name, 'uuid': uuid}
+                for c, batch in enumerate(normalize_patches(patches,
+                                                            normalizers,
+                                                            slide.centre)):
+                    filename_kwargs['centre'] = c
+                    lg.info('[%s] - - Centre %s started.', slide.name, c)
+                    lg.info('[%s] - - - writing files...', slide.name)
+                    for idx, p in enumerate(batch):
+                        filename_kwargs['idx'] = idx
 
-                    label_filepath = _FILENAME.format(
-                        ext='png', **filename_kwargs)
-                    label_filepath = str(output_dir /
-                                         _LABELS_DIRNAME /
-                                         label_filepath)
-                    imsave(label_filepath, labels[idx])
+                        patch_filepath = _FILENAME.format(
+                            ext='jpeg', **filename_kwargs)
+                        patch_filepath = str(output_dir /
+                                            _PATCHES_DIRNAME /
+                                            patch_filepath)
+                        imsave(patch_filepath, p, quality=100)
 
-            lg.info('[%s] - (%s / %s) done.',
-                    slide.name, (sample_count + 1) * centre_count,
-                    sample_size * centre_count)
-            del batch
+                        label_filepath = _FILENAME.format(
+                            ext='png', **filename_kwargs)
+                        label_filepath = str(output_dir /
+                                            _LABELS_DIRNAME /
+                                            label_filepath)
+                        imsave(label_filepath, labels[idx])
 
-            patches = []
-            labels = []
+                    lg.info('[%s] - - Centre %s done.', slide.name, c)
 
-        sample_count += 1
+                lg.info('[%s] - (%s / %s) done.',
+                        slide.name, (sample_count + 1) * centre_count,
+                        sample_size * centre_count)
+                del batch
+
+                patches = []
+                labels = []
+
+            sample_count += 1
 
 def main():
     args = collect_arguments()
