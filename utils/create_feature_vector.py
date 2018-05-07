@@ -1,83 +1,162 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python3.6
 from argparse import ArgumentParser
+import csv
+from enum import IntEnum
+from functools import reduce
 from pathlib import Path
+import sys
 
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
-import openslide
 from scipy import ndimage as nd
+from skimage import img_as_float
+from skimage.io import imread
 from skimage import measure
 
-from core import parse_dataset
+
+_HEATMAP_LEVEL = 5
+_RESOLUTION = 0.243  # µm
+_SOFTMAX_THRESHOLDS = 0.5, 0.9
+
+_LOCAL_PROP_KEYS = (
+    'area',
+    'extent',
+    'eccentricity',
+    'major_axis_length',
+    'mean_intensity',
+    'solidity',
+    'perimeter',
+)
+
+
+class WSILabels(IntEnum):
+    NEGATIVE = 0
+    ITC = 1
+    MICRO = 2
+    MACRO = 4
+
+    @classmethod
+    def get_value(cls, label):
+        return cls.__members__[label.upper()]
 
 
 def collect_arguments():
-    parser = ArgumentParser(
-        description='Produce feature vectors from the WSI masks.',
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        '--softmax-dir',
+        type=Path,
+        required=True
     )
 
     parser.add_argument(
-        '--data-list-file',
+        '--output-dir',
         type=Path,
         required=True,
-        help='Path to the csv file containing WSI file information.',
     )
 
     parser.add_argument(
-        '--output-path',
+        '--labels',
         type=Path,
         required=True,
-        help='Path to write output.',
+    )
+
+
+    parser.add_argument(
+        '--exclude-list',
+        type=Path,
     )
 
     parser.add_argument(
-        '--output-filename',
-        type=Path,
-        help='The filename',
-        default='features.csv',
+        '--filename',
+        type=str,
+        default='features.csv'
     )
 
     return parser.parse_args()
 
 
-L0_RESOLUTION = 0.243
-LEVEL = 5
-
-def compute_region_mask(slide):
-    """Computes the evaluation mask.
-
-    Args:
-        maskDIR:    the directory of the ground truth mask
-        resolution: Pixel resolution of the image at level 0
-        level:      The level at which the evaluation mask is made
-
-    Returns:
-        evaluation_mask
-    """
-    pixelarray = slide.get_metastases_mask(LEVEL).astype(np.uint8) * 255
-    distance = nd.distance_transform_edt(255 - pixelarray)
-    Threshold = 75 / (L0_RESOLUTION * 2**LEVEL * 2) # 75µm is the equivalent size of 5 tumor cells
-    binary = distance < Threshold
-    filled_image = nd.morphology.binary_fill_holes(binary)
-    region_mask = measure.label(filled_image, connectivity=2)
-    return region_mask
+def get_exludes(exclude_list_path, excludes):
+    with open(str(exclude_list_path)) as exclude_file:
+        for exclude_name in exclude_file.readlines():
+            excludes.append(exclude_name.strip())
 
 
-def main():
-    args = collect_arguments()
+def load_labels(labels_path):
+    labels = {}
+    with open(str(labels_path)) as labels_file:
+        label_reader = csv.DictReader(labels_file)
+        for label_entry in label_reader:
+            slide_name = label_entry['patient']
+            if slide_name[-4:] == '.zip':
+                continue
 
-    wsi_data = parse_dataset(args.data_list_file)[:5]
+            labels[slide_name[:-4]] = WSILabels.get_value(label_entry['stage'])
 
-    while wsi_data:
-        slide = wsi_data.pop(0)
+    return labels
 
-        if slide.label_xml_path is None:
+
+def connect_regions(mask):
+    mask = nd.distance_transform_edt(255 - (mask * 255))
+
+    threshold = 75 / (_RESOLUTION * 2**_HEATMAP_LEVEL * 2)  # 75µm is the
+                                                            # equivalent size
+                                                            # of 5 tumor cells
+    mask = mask < threshold
+    mask = nd.morphology.binary_fill_holes(mask)
+    mask = measure.label(mask, connectivity=2)
+    return mask
+
+
+def main(args):
+    excludes = []
+    if args.exclude_list is not None:
+        get_exludes(args.exclude_list, excludes)
+
+    labels = load_labels(args.labels)
+
+    feature_vectors = []
+    for softmax_path in sorted(args.softmax_dir.glob('*.png')):
+        stem = softmax_path.stem
+        if stem in excludes:
+            print(f'>> Excluding {stem}')
             continue
+        else:
+            print(f'>> Extracting features from {stem}')
 
-        region_mask = compute_region_mask(slide)
-        print(measure.regionprops(region_mask))
+        softmax = img_as_float(imread(str(softmax_path), as_gray=True))
 
+        feature_vector = []
+        feature_vectors.append(stem)
+        feature_vector.append(np.amax(softmax))  # Feature: heatmap max value
+        for t in _SOFTMAX_THRESHOLDS:
+            thresh = connect_regions(softmax > t)
+            props = measure.regionprops(thresh, softmax)
+
+            largest = reduce(lambda x, y: x if x.area > y.area else y,
+                             props)
+
+            # Features:
+            #   1. area
+            #   2. extent
+            #   3. eccentricity
+            #   4. major_axis_length
+            #   5. mean_intensity
+            #   6. solidity
+            #   7. perimeter
+            feature_vector.extend([largest[key] for key in _LOCAL_PROP_KEYS])
+
+            # Feature: total area of connected regions
+            feature_vector.append(sum(prop.area for prop in props))
+
+        feature_vector.append(int(labels[stem]))
+        feature_vectors.append(feature_vector)
+
+    with open(str(args.output_dir / args.filename), 'w') as outfile:
+        fv_writer = csv.writer(outfile)
+        for fv in feature_vectors:
+            fv_writer.writerow(fv)
 
 
 if __name__ == '__main__':
-    main()
+    main(collect_arguments())
