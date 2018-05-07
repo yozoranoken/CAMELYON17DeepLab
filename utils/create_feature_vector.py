@@ -127,7 +127,7 @@ def main(args):
         softmax = img_as_float(imread(str(softmax_path), as_gray=True))
 
         feature_vector = []
-        feature_vectors.append(stem)
+        feature_vector.append(stem)
         feature_vector.append(np.amax(softmax))  # Feature: heatmap max value
         for t in _SOFTMAX_THRESHOLDS:
             thresh = connect_regions(softmax > t)
@@ -153,7 +153,7 @@ def main(args):
         feature_vectors.append(feature_vector)
 
     with open(str(args.output_dir / args.filename), 'w') as outfile:
-        fv_writer = csv.writer(outfile)
+        fv_writer = csv.writer(outfile, quoting=csv.QUOTE_NONNUMERIC)
         for fv in feature_vectors:
             fv_writer.writerow(fv)
 
