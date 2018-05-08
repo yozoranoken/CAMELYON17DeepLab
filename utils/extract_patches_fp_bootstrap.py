@@ -58,6 +58,11 @@ def collect_arguments():
         default='PatchesFPBootstrap',
     )
 
+    parser.add_argument(
+        '--excludes-list',
+        type=Path,
+    )
+
     return parser.parse_args()
 
 
@@ -152,6 +157,11 @@ def extract_patches(
                    label)
 
 
+def get_exludes(exclude_list_path, excludes):
+    with open(str(exclude_list_path)) as exclude_file:
+        for exclude_name in exclude_file.readlines():
+            excludes.append(exclude_name.strip())
+
 
 def main(args):
     output_folder = args.output_parent_dir / args.output_folder_name
@@ -162,9 +172,18 @@ def main(args):
 
     semantic_paths = sorted(args.semantic_dir.glob('*.png'))
 
+    excludes = []
+    if args.exclude_list is not None:
+        get_exludes(args.exclude_list, excludes)
+
     for semantic_path in semantic_paths:
         slide_name = semantic_path.stem
-        print(f'>> Processing {slide_name}')
+        if stem in excludes:
+            print(f'>> Excluding {slide_namme}')
+            continue
+        else:
+            print(f'>> Processing {slide_name}')
+
         slide_path = tuple(args.wsi_dir.glob(f'**/{slide_name}.tif'))[0]
         slide = OpenSlide(str(slide_path))
         label_mask, label_slide = get_label(
