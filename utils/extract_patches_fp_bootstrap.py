@@ -59,7 +59,7 @@ def collect_arguments():
     )
 
     parser.add_argument(
-        '--excludes-list',
+        '--exclude-list',
         type=Path,
     )
 
