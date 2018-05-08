@@ -10,6 +10,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 
 
+_TRAIN_DIRNAME = 'train'
+
+
 def collect_arguments():
     parser = ArgumentParser()
 
@@ -20,7 +23,7 @@ def collect_arguments():
     )
 
     parser.add_argument(
-        '--rf-model-output-dir',
+        '--model-root',
         type=Path,
         required=True,
     )
@@ -144,7 +147,7 @@ def main(args):
         score = rf_classifier.score(X_test, y_test)
         print(f'Done. Test data mean accuracy: {score}')
 
-    output_dir = args.rf_model_output_dir
+    output_dir = args.model_root / _TRAIN_DIRNAME
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = str(output_dir / args.filename)
     joblib.dump(rf_classifier, output_path)
