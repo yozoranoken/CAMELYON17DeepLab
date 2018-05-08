@@ -13,6 +13,8 @@ from skimage import img_as_float
 from skimage.io import imread
 from skimage import measure
 
+from core import WSILabels
+
 
 _HEATMAP_LEVEL = 5
 _RESOLUTION = 0.243  # µm
@@ -31,17 +33,6 @@ _LOCAL_PROP_KEYS = (
     'solidity',
     'perimeter',
 )
-
-
-class WSILabels(IntEnum):
-    NEGATIVE = 0
-    ITC = 1
-    MICRO = 2
-    MACRO = 4
-
-    @classmethod
-    def get_value(cls, label):
-        return cls.__members__[label.upper()]
 
 
 def collect_arguments():
@@ -165,7 +156,7 @@ def main(args):
         threshold_keys = map(lambda key: f'{key}_{suffix}',
                              _LOCAL_PROP_KEYS)
         csv_labels.extend(list(threshold_keys))
-        csv_labels.append('{_CSV_LABEL_TOTAL_AREA}_{suffix}')
+        csv_labels.append(f'{_CSV_LABEL_TOTAL_AREA}_{suffix}')
 
     if args.labels is not None:
         csv_labels.append(_CSV_LABEL_LABEL)

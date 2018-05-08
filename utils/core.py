@@ -8,6 +8,7 @@ from pathlib import Path
 from random import randint
 import sys
 
+
 from matplotlib import pyplot as plt
 import numpy as np
 from openslide import OpenSlide
@@ -30,6 +31,17 @@ _SMALL_OBJECT_AREA = 128
 _MEDIAN_DISK = 17
 _ROI_PATCH_COVER_PERCENTAGE = 0.4
 _CENTRE_DIR = Path('./centre_samples')
+
+
+class WSILabels(IntEnum):
+    NEGATIVE = 0
+    ITC = 1
+    MICRO = 2
+    MACRO = 4
+
+    @classmethod
+    def get_value(cls, label):
+        return cls.__members__[label.upper()]
 
 
 class ResourceGroup(Enum):

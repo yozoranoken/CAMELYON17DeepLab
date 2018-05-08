@@ -8,6 +8,8 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 
+from core import WSILabels
+
 
 def collect_arguments():
     parser = ArgumentParser()
@@ -41,8 +43,19 @@ def collect_arguments():
 
 
 def main(args):
-    df = pd.read_csv(str(args.feature_vectors), header=0)
-    print(df)
+    data = pd.read_csv(str(args.feature_vectors), header=0).as_matrix()
+    names = data[:, 0]
+    X = data[:, 1:].astype(np.float64)
+
+    rf_classifier = joblib.load(str(args.model_pkl))
+    y = rf_classifier.predict(X)
+    y = tuple(map(lambda val: WSILabels(val).name.lower(), y))
+
+    with open(str(args.output_dir / args.filename), 'w') as pred_file:
+        writer = csv.writer(pred_file)
+        writer.writerow(['uid', 'prediction'])
+        for n, pred in zip(names, y):
+            writer.writerow([n, pred])
 
 
 if __name__ == '__main__':
