@@ -18,6 +18,10 @@ _HEATMAP_LEVEL = 5
 _RESOLUTION = 0.243  # µm
 _SOFTMAX_THRESHOLDS = 0.5, 0.9
 
+_CSV_LABEL_UID = 'uid'
+_CSV_LABEL_MAX_VAL = 'maximum_intensity'
+_CSV_LABEL_TOTAL_AREA = 'total_area'
+_CSV_LABEL_LABEL = 'label'
 _LOCAL_PROP_KEYS = (
     'area',
     'extent',
@@ -58,7 +62,6 @@ def collect_arguments():
     parser.add_argument(
         '--labels',
         type=Path,
-        required=True,
     )
 
 
@@ -113,7 +116,8 @@ def main(args):
     if args.exclude_list is not None:
         get_exludes(args.exclude_list, excludes)
 
-    labels = load_labels(args.labels)
+    if args.labels is not None:
+        labels = load_labels(args.labels)
 
     feature_vectors = []
     for softmax_path in sorted(args.softmax_dir.glob('*.png')):
@@ -149,11 +153,27 @@ def main(args):
             # Feature: total area of connected regions
             feature_vector.append(sum(prop.area for prop in props))
 
-        feature_vector.append(int(labels[stem]))
+        if args.labels is not None:
+            feature_vector.append(int(labels[stem]))
+
         feature_vectors.append(feature_vector)
 
+
+    csv_labels = [_CSV_LABEL_UID, _CSV_LABEL_MAX_VAL]
+    for t in _SOFTMAX_THRESHOLDS:
+        suffix = round(t * 100)
+        threshold_keys = map(lambda key: f'{key}_{suffix}',
+                             _LOCAL_PROP_KEYS)
+        csv_labels.extend(list(threshold_keys))
+        csv_labels.append('{_CSV_LABEL_TOTAL_AREA}_{suffix}')
+
+    if args.labels is not None:
+        csv_labels.append(_CSV_LABEL_LABEL)
+
+
     with open(str(args.output_dir / args.filename), 'w') as outfile:
-        fv_writer = csv.writer(outfile, quoting=csv.QUOTE_NONNUMERIC)
+        fv_writer = csv.writer(outfile)
+        fv_writer.writerow(csv_labels)
         for fv in feature_vectors:
             fv_writer.writerow(fv)
 
