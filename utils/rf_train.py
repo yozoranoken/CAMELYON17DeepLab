@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 
@@ -111,16 +112,19 @@ def get_max_features_arg(arg):
 
 
 def main(args):
-    names, features, labels = parse_data(args.feature_vectors)
+    data = pd.read_csv(str(args.feature_vectors), header=0).as_matrix()
+    names = data[:, 0]
+    X = data[:, 1:-1].astype(np.float64)
+    y = data[:, -1].astype(np.float64)
 
     X_train, y_train, X_test, y_test = None, None, None, None
 
     if not args.train_all:
-        split = round(features.shape[0] * args.train_split)
-        X_train, y_train = features[:split], labels[:split]
-        X_test, y_test = features[split:], labels[split:]
+        split = round(X.shape[0] * args.train_split)
+        X_train, y_train = X[:split], y[:split]
+        X_test, y_test = X[split:], y[split:]
     else:
-        X_train, y_train = features, labels
+        X_train, y_train = X, y
 
 
     rf_classifier = RandomForestClassifier(
