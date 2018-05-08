@@ -91,7 +91,7 @@ def get_label(slide, slide_name, masks_dir):
 def get_semantic(semantic_path):
     semantic_img = imread(str(semantic_path), as_gray=True) * 255
     distance = nd.distance_transform_edt(255 - semantic_img)
-    Threshold = 75/(0.243 * 2**5 * 2)
+    Threshold = 75/(0.243 * 2**_SAMPLE_LEVEL * 2)
     binary = distance < Threshold
     filled_image = nd.morphology.binary_fill_holes(binary)
     return filled_image.astype(bool)
@@ -178,7 +178,7 @@ def main(args):
 
     for semantic_path in semantic_paths:
         slide_name = semantic_path.stem
-        if stem in excludes:
+        if slide_name in excludes:
             print(f'>> Excluding {slide_namme}')
             continue
         else:
