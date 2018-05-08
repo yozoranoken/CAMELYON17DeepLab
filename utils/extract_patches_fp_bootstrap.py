@@ -179,7 +179,7 @@ def main(args):
     for semantic_path in semantic_paths:
         slide_name = semantic_path.stem
         if slide_name in excludes:
-            print(f'>> Excluding {slide_namme}')
+            print(f'>> Excluding {slide_name}')
             continue
         else:
             print(f'>> Processing {slide_name}')
