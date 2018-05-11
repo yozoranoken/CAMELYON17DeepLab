@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 from argparse import ArgumentParser
 from pathlib import Path
+import sys
 
 
 import multiresolutionimageinterface as mir
@@ -67,6 +68,8 @@ def main(args):
             continue
 
         print(f'>> Creating mask for {stem}...')
+        sys.stdout.flush()
+
         reader = mir.MultiResolutionImageReader()
 
         wsi_tif_path = args.wsi_dir / f'{stem}.tif'
@@ -88,6 +91,7 @@ def main(args):
             _LABEL_MAP,
         )
         print(f'   Mask saved for {stem} at {output_path}')
+        sys.stdout.flush()
 
 
 if __name__ == '__main__':
