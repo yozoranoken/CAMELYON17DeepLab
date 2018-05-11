@@ -9,11 +9,13 @@ import multiresolutionimageinterface as mir
 
 _LABEL_MAP = {
     'metastases': 1,
+    'normal': 2,
+    'ignore': 3,
     '_0': 1,
     '_1': 1,
-    'normal': 2,
     '_2': 2,
-    'ignore': 3,
+    'Tumor': 1,
+    'Exclusion': 2,
 }
 
 
