@@ -37,7 +37,7 @@ class WSILabels(IntEnum):
     NEGATIVE = 0
     ITC = 1
     MICRO = 2
-    MACRO = 4
+    MACRO = 3
 
     @classmethod
     def get_value(cls, label):
