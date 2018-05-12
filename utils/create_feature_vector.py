@@ -4,7 +4,9 @@ from abc import abstractmethod
 from argparse import ArgumentParser
 import csv
 from enum import IntEnum
+from functools import partial
 from functools import reduce
+from multiprocessing import Pool
 from pathlib import Path
 import sys
 
@@ -54,6 +56,12 @@ def collect_arguments():
     parser.add_argument(
         '--labels',
         type=Path,
+    )
+
+    parser.add_argument(
+        '--n-jobs',
+        type=int,
+        default=2,
     )
 
     parser.add_argument(
@@ -223,6 +231,22 @@ def generate_names(softmax_dir, name_list_path=None):
     return names
 
 
+def create_feature_vector(fv_creator, softmax_dir, semantic_dir, labels, name):
+    print(f'>> Processing {name}')
+
+    filename = f'{name}.png'
+    softmax = img_as_float(imread(str(softmax_dir / filename), as_gray=True))
+    semantic = imread(str(semantic_dir / filename), as_gray=True)
+    label = labels and int(labels[name])
+
+    return fv_creator.create(
+        name=name,
+        softmax=softmax,
+        semantic=semantic,
+        label=label
+    )
+
+
 def main(args):
     labels = None
     if args.labels is not None:
@@ -238,24 +262,16 @@ def main(args):
 
     names = generate_names(args.softmax_dir, args.name_list)
 
-    feature_vectors = []
-    for name in names:
-        print(f'>> Processing {name}')
+    f = partial(
+        create_feature_vector,
+        fv_creator,
+        args.softmax_dir,
+        args.semantic_dir,
+        labels,
+    )
 
-        filename = f'{name}.png'
-        softmax = img_as_float(imread(str(args.softmax_dir / filename),
-                                      as_gray=True))
-        semantic = imread(str(args.semantic_dir / filename), as_gray=True)
-        label = labels and int(labels[name])
-
-        fv = fv_creator.create(
-            name=name,
-            softmax=softmax,
-            semantic=semantic,
-            label=label
-        )
-
-        feature_vectors.append(fv)
+    with Pool(args.n_jobs) as pool:
+        feature_vectors = pool.map(f, names)
 
     df = pd.DataFrame(
         data=np.array(feature_vectors),
