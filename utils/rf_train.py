@@ -7,7 +7,6 @@ import csv
 from pathlib import Path
 import sys
 
-import hdbscan
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -102,16 +101,6 @@ def collect_arguments():
         default=690420,
     )
 
-
-    # Random Forest Parser
-    hdbs_parser = sub_parsers.add_parser(
-        Classifier.Method.HDBSCAN.value)
-
-    hdbs_parser.add_argument(
-
-    )
-
-
     return parser.parse_args()
 
 
@@ -176,10 +165,6 @@ class RandomForest(Classifier):
     def score(self, X, y):
         return self._clf.score(X, y)
 
-
-class HDBScan(Classifier):
-    def __init__(self, args):
-        self._clf =
 
 
 _CLF_MAP = {
