@@ -8,7 +8,6 @@ from functools import reduce
 from pathlib import Path
 import sys
 
-import hdbscan
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
