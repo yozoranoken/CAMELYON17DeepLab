@@ -7,13 +7,11 @@ import csv
 from pathlib import Path
 import sys
 
+import hdbscan
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
-
-
-_TRAIN_DIRNAME = 'train'
 
 
 def collect_arguments():
@@ -54,13 +52,19 @@ def collect_arguments():
         action='store_true',
     )
 
+    parser.add_argument(
+        '--n-jobs',
+        type=int,
+        default=1,
+    )
+
 
     sub_parsers = parser.add_subparsers(dest='method')
 
 
     # Random Forest Parser
     rf_parser = sub_parsers.add_parser(
-        EnsembleClassifier.Method.RANDOM_FOREST.value)
+        Classifier.Method.RANDOM_FOREST.value)
 
     rf_parser.add_argument(
         '--model-filename',
@@ -99,13 +103,16 @@ def collect_arguments():
     )
 
 
+    # Random Forest Parser
+    hdbs_parser = sub_parsers.add_parser(
+        Classifier.Method.HDBSCAN.value)
+
+    hdbs_parser.add_argument(
+
+    )
+
+
     return parser.parse_args()
-
-
-_DATA_NAME_COL = 0
-_DATA_FEATURE_COL_START = 1
-_DATA_FEATURE_COL_END = 18
-_DATA_LABEL_COL = 18
 
 
 _MAX_FEATURES_VALS = 'auto', 'sqrt', 'log2'
@@ -132,9 +139,10 @@ def split_Xy(data, fv_length):
     return X, y
 
 
-class EnsembleClassifier(ABC):
+class Classifier(ABC):
     class Method(Enum):
         RANDOM_FOREST = 'random_forest'
+        HDBSCAN = 'hdbscan'
 
     @abstractmethod
     def fit(self, X, y):
@@ -149,7 +157,7 @@ class EnsembleClassifier(ABC):
         pass
 
 
-class RandomForest(EnsembleClassifier):
+class RandomForest(Classifier):
     def __init__(self, args):
         self._clf = RandomForestClassifier(
             n_jobs=args.n_jobs,
@@ -169,12 +177,17 @@ class RandomForest(EnsembleClassifier):
         return self._clf.score(X, y)
 
 
+class HDBScan(Classifier):
+    def __init__(self, args):
+        self._clf =
+
+
 _CLF_MAP = {
-    EnsembleClassifier.Method.RANDOM_FOREST: RandomForest,
+    Classifier.Method.RANDOM_FOREST: RandomForest,
 }
 
 def get_classifier(args):
-    return _CLF_MAP[EnsembleClassifier.Method(args.method)](args)
+    return _CLF_MAP[Classifier.Method(args.method)](args)
 
 
 def main(args):
