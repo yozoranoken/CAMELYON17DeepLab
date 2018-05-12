@@ -84,15 +84,6 @@ def collect_arguments():
 
     return parser.parse_args()
 
-def hdbscan_alg(mask):
-    pts = np.argwhere(mask > 0)
-    clusterer = hdbscan.HDBSCAN(core_dist_n_jobs=4)
-    clusterer.fit(pts)
-
-    new_mask = mask.copy()
-    new_mask[pts] = clusterer.labels_
-
-    return new_mask
 
 class FeatureVectorCreator(ABC):
     def __init__(self, cluster_algorithm, include_labels=False):
@@ -121,18 +112,9 @@ class FeatureVectorCreator(ABC):
         mask = mask < threshold
         mask = nd.morphology.binary_fill_holes(mask)
 
-        mask_hd = hdbscan_alg(mask)
-
         mask = measure.label(mask, connectivity=2)
 
-        fx, ax = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
-        ax[0].imshow(mask_hd)
-        ax[1].imshow(mask)
-        plt.show()
-
         return mask
-
-
 
 
 class FVMethod001(FeatureVectorCreator):
