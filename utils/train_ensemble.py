@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score
 from ensembles import Classifier
 from ensembles import RandomForest
 from ensembles import get_classifier
-from ensembles import split_Xy 
+from ensembles import split_Xy
 from ensembles import write_csv_predictions_vs_ground_truth
 
 
@@ -96,11 +96,21 @@ def collect_arguments():
         default=690420,
     )
 
-    # Random Forest Parser
+    # GC Forest Parser
     gc_parser = sub_parsers.add_parser(
         Classifier.Method.GC_FOREST.value)
 
     gc_parser.add_argument(
+        '--config',
+        type=Path,
+        required=True,
+    )
+
+    # CA Forest Parser
+    ca_parser = sub_parsers.add_parser(
+        Classifier.Method.CA_FOREST.value)
+
+    ca_parser.add_argument(
         '--config',
         type=Path,
         required=True,

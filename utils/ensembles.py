@@ -18,6 +18,7 @@ class Classifier(ABC):
     class Method(Enum):
         RANDOM_FOREST = 'random_forest'
         GC_FOREST = 'gc_forest'
+        CA_FOREST = 'ca_forest'
 
     def __init__(self, args=None, model_path=None):
         if model_path is not None:
@@ -104,11 +105,11 @@ class RandomForest(Classifier):
         return self._clf.predict(X)
 
 
-class GCForest(Classifier):
+class CAForest(Classifier):
 
     @property
     def default_filename(self):
-        return 'gc_model'
+        return 'ca_model'
 
     def _make_clf(self, args):
         config = load_json(str(args.config))
@@ -118,6 +119,23 @@ class GCForest(Classifier):
         with open(str(model_path), "rb") as pkl_file:
             return pickle.load(pkl_file)
 
+    def fit(self, X, y):
+        return self._clf.fit_transform(X, y)
+
+    def save(self, path):
+        with open(str(path), 'wb') as pkl_file:
+            pickle.dump(self._clf, pkl_file, pickle.HIGHEST_PROTOCOL)
+
+
+    def predict(self, X):
+        return self._clf.predict(X)
+
+class GCForest(CAForest):
+
+    @property
+    def default_filename(self):
+        return 'gc_model'
+
     def _transform_X(self, X):
         X_4d = np.expand_dims(X, 1)
         X_4d = np.expand_dims(X_4d, 1)
@@ -126,10 +144,6 @@ class GCForest(Classifier):
     def fit(self, X, y):
         return self._clf.fit_transform(self._transform_X(X), y)
 
-    def save(self, path):
-        with open(str(path), 'wb') as pkl_file:
-            pickle.dump(self._clf, pkl_file, pickle.HIGHEST_PROTOCOL)
-
     def predict(self, X):
         return self._clf.predict(self._transform_X(X))
 
@@ -137,6 +151,7 @@ class GCForest(Classifier):
 _CLF_MAP = {
     Classifier.Method.RANDOM_FOREST: RandomForest,
     Classifier.Method.GC_FOREST: GCForest,
+    Classifier.Method.CA_FOREST: CAForest,
 }
 
 
