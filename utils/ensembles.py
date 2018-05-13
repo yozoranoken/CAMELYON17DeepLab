@@ -17,7 +17,6 @@ from sklearn.externals import joblib
 class Classifier(ABC):
     class Method(Enum):
         RANDOM_FOREST = 'random_forest'
-        HDBSCAN = 'hdbscan'
         GC_FOREST = 'gc_forest'
 
     def __init__(self, args=None, model_path=None):
@@ -141,9 +140,9 @@ _CLF_MAP = {
 }
 
 
-def get_classifier(args=None, model_path=None):
+def get_classifier(method, args=None, model_path=None):
     assert args is not None or model_path is not None
-    return _CLF_MAP[Classifier.Method(args.method)](args, model_path)
+    return _CLF_MAP[Classifier.Method(method)](args, model_path)
 
 def _convert_labels_str(labels):
     return tuple(map(lambda y: WSILabels(int(y)).name.lower(), labels))
@@ -157,3 +156,8 @@ def write_csv_predictions_vs_ground_truth(csv_path, names, y_pred, y):
     ))
     data = pd.DataFrame(stacked, columns=_PRED_VS_GT_COL_NAMES)
     data.to_csv(str(csv_path), index=False)
+
+def split_Xy(data, fv_length):
+    X = data[:, :fv_length].astype(np.float64)
+    y = data[:, -1].astype(np.float64)
+    return X, y

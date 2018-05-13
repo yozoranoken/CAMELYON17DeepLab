@@ -10,6 +10,7 @@ from sklearn.metrics import accuracy_score
 from ensembles import Classifier
 from ensembles import RandomForest
 from ensembles import get_classifier
+from ensembles import split_Xy 
 from ensembles import write_csv_predictions_vs_ground_truth
 
 
@@ -108,12 +109,6 @@ def collect_arguments():
     return parser.parse_args()
 
 
-def split_Xy(data, fv_length):
-    X = data[:, :fv_length].astype(np.float64)
-    y = data[:, -1].astype(np.float64)
-    return X, y
-
-
 def main(args):
     pd_data = pd.read_csv(str(args.feature_vectors))
     data = pd_data.as_matrix()
@@ -137,7 +132,7 @@ def main(args):
           f'each with {X_train.shape[1]} features.')
 
 
-    classifier = get_classifier(args)
+    classifier = get_classifier(args.method, args)
 
     print('>> Training classifier...', end=' ')
     classifier.fit(X_train, y_train)

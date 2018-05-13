@@ -11,6 +11,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 
 from core import WSILabels
+from ensembles import Classifier
+from ensembles import get_classifier
+from ensembles import split_Xy
+from sklearn.metrics import accuracy_score
 
 _EVAL_DIRNAME = 'eval'
 
@@ -25,7 +29,20 @@ def collect_arguments():
     )
 
     parser.add_argument(
-        '--model-pkl',
+        '--fv-length',
+        type=int,
+        required=True
+    )
+
+    parser.add_argument(
+        '--method',
+        choices=tuple(method for method in Classifier.Method),
+        type=Classifier.Method,
+        required=True,
+    )
+
+    parser.add_argument(
+        '--model-path',
         type=Path,
         required=True,
     )
@@ -39,14 +56,7 @@ def collect_arguments():
     parser.add_argument(
         '--filename',
         type=str,
-        default='rf_predictions.csv'
     )
-
-    parser.add_argument(
-        '--exclude-label-col',
-        action='store_true',
-    )
-
 
     return parser.parse_args()
 
@@ -101,29 +111,42 @@ def aggregate_for_pNstage_results(slide_names, predictions):
         for slide_name, label in slides.items():
             results[slide_name] = label.name.lower()
 
-    return results
+    return np.array([(patient, stage) for patient, stage in results.items()])
 
 
 def main(args):
-    data = pd.read_csv(str(args.feature_vectors), header=0).as_matrix()
+    pd_data = pd.read_csv(str(args.feature_vectors))
+    data = pd_data.as_matrix()
+
     names = data[:, 0]
+    data = data[:, 1:]
+    X, y = split_Xy(data, args.fv_length)
 
-    X = data[:, 1:].astype(np.float64)
-    if args.exclude_label_col:
-        X = X[:, :-1]
+    classifier = get_classifier(args.method, model_path=args.model_path)
 
-    rf_classifier = joblib.load(str(args.model_pkl))
-    y = rf_classifier.predict(X)
+    print('>> Predicting data...', end=' ')
+    y_pred = classifier.predict(X)
+    score = accuracy_score(y, y_pred)
+    print(f'Done. Test data mean accuracy: {score}')
 
-    pNstage_results = aggregate_for_pNstage_results(names, y)
+    # pred_filename = args.model_filename or classifier.default_filename
+    # pred_path = args.output_dir / f'{pred_filename}_results.csv'
+    # write_csv_predictions_vs_ground_truth(
+    #     csv_path=pred_path,
+    #     names=test_names,
+    #     y_pred=y_pred,
+    #     y=y_test,
+    # )
+    # print(f'>> Saved results to {pred_path}')
+
+    pNstage_results = aggregate_for_pNstage_results(names, y_pred)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = args.output_dir / args.filename
-    with open(str(output_file), 'w') as pred_file:
-        writer = csv.writer(pred_file)
-        writer.writerow(['patient', 'stage'])
-        for patient, stage in pNstage_results.items():
-            writer.writerow([patient, stage])
+    filename = args.filename or f'{args.model_path.stem}_predictions.csv'
+    output_file = args.output_dir / filename
+
+    data = pd.DataFrame(pNstage_results, columns=('patient', 'stage'))
+    data.to_csv(str(output_file), index=False)
 
     print(f'>> Predictions written at {output_file}')
 
