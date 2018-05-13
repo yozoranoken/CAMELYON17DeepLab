@@ -157,7 +157,7 @@ def main(args):
             y_pred=y_pred,
             y=y_test,
         )
-    print(f'>> Saved results to {pred_path}')
+        print(f'>> Saved results to {pred_path}')
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     filename = classifier.get_model_filename(args.model_filename)
