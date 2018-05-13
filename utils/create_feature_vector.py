@@ -61,7 +61,7 @@ def collect_arguments():
     parser.add_argument(
         '--n-jobs',
         type=int,
-        default=2,
+        default=1,
     )
 
     parser.add_argument(
@@ -69,7 +69,6 @@ def collect_arguments():
         type=str,
         choices=(
             'connect_2',
-            'hdbscan',
         ),
         default='connect_2',
     )
@@ -79,6 +78,8 @@ def collect_arguments():
         type=str,
         choices=(
             'method_1',
+            'method_2',
+            'method_3',
         ),
         default='method_1',
     )
@@ -165,17 +166,31 @@ class FVMethod001(FeatureVectorCreator):
         # Feature: total area of connected regions
         feature_vector.append(sum(prop.area for prop in props))
 
+    def get_threshold_masks(self, softmax, semantic):
+        for t in self._SOFTMAX_THRESHOLDS:
+            yield softmax > t
+        yield semantic.astype(bool)
+
+    @property
+    def threshold_suffixes(self):
+        names = tuple(map(lambda t: str(int(t * 100)),
+                          self._SOFTMAX_THRESHOLDS))
+        names += ('semantic',)
+        return names
 
     def create(self, softmax, semantic, name, label=None):
         feature_vector = []
         feature_vector.append(name)
         feature_vector.append(np.amax(softmax))  # Feature: heatmap max value
 
-        for t in self._SOFTMAX_THRESHOLDS:
-            self.extract_local_features(softmax > t, softmax, feature_vector)
+        # for t in self._SOFTMAX_THRESHOLDS:
+        #     self.extract_local_features(softmax > t, softmax, feature_vector)
 
-        self.extract_local_features(semantic.astype(bool), softmax,
-                                    feature_vector)
+        for thresh in self.get_threshold_masks(softmax, semantic):
+            self.extract_local_features(thresh, softmax, feature_vector)
+
+        # self.extract_local_features(semantic.astype(bool), softmax,
+        #                             feature_vector)
 
         if label is not None and self._include_labels:
             feature_vector.append(label)
@@ -192,16 +207,37 @@ class FVMethod001(FeatureVectorCreator):
     def names(self):
         names = [self._NAME_PATIENT, self._NAME_MAX_VAL]
 
-        for t in self._SOFTMAX_THRESHOLDS:
-            suffix = round(t * 100)
-            names.extend(self.suffixed_local_props(suffix))
+        # for t in self._SOFTMAX_THRESHOLDS:
+        #     suffix = round(t * 100)
+        #     names.extend(self.suffixed_local_props(suffix))
+        #
+        # names.extend(self.suffixed_local_props('semantic'))
 
-        names.extend(self.suffixed_local_props('semantic'))
+        for suffix in self.threshold_suffixes:
+            names.extend(self.suffixed_local_props(suffix))
 
         if self._include_labels:
             names.append(_NAME_LABEL)
 
         return names
+
+
+class FVMethod002(FVMethod001):
+    _SOFTMAX_THRESHOLDS = (0.5, 0.9)
+
+    def get_threshold_masks(self, softmax, semantic):
+        for t in self._SOFTMAX_THRESHOLDS:
+            yield softmax > t
+
+    @property
+    def threshold_suffixes(self):
+        names = tuple(map(lambda t: str(int(t * 100)),
+                          self._SOFTMAX_THRESHOLDS))
+        return names
+
+
+class FVMethod003(FVMethod001):
+    _SOFTMAX_THRESHOLDS = (0.5, 0.9)
 
 
 def load_labels(labels_path):
@@ -256,6 +292,16 @@ def main(args):
     fv_creator = None
     if args.method == 'method_1':
         fv_creator = FVMethod001(
+            cluster_algorithm=cluster_algorithm,
+            include_labels=labels is not None,
+        )
+    elif args.method == 'method_2':
+        fv_creator = FVMethod002(
+            cluster_algorithm=cluster_algorithm,
+            include_labels=labels is not None,
+        )
+    elif args.method == 'method_3':
+        fv_creator = FVMethod003(
             cluster_algorithm=cluster_algorithm,
             include_labels=labels is not None,
         )
