@@ -8,7 +8,6 @@ from pathlib import Path
 from random import randint
 import sys
 
-
 from matplotlib import pyplot as plt
 import numpy as np
 from openslide import OpenSlide

@@ -1,11 +1,11 @@
 # -*- coding:utf-8 -*-
 """
 Description: A python 2.7 implementation of gcForest proposed in [1]. A demo implementation of gcForest library as well as some demo client scripts to demostrate how to use the code. The implementation is flexible enough for modifying the model or
-fit your own datasets. 
+fit your own datasets.
 Reference: [1] Z.-H. Zhou and J. Feng. Deep Forest: Towards an Alternative to Deep Neural Networks. In IJCAI-2017.  (https://arxiv.org/abs/1702.08835v2 )
 Requirements: This package is developed with Python 2.7, please make sure all the demendencies are installed, which is specified in requirements.txt
 ATTN: This package is free for academic usage. You can run it at your own risk. For other purposes, please contact Prof. Zhi-Hua Zhou(zhouzh@lamda.nju.edu.cn)
-ATTN2: This package was developed by Mr.Ji Feng(fengj@lamda.nju.edu.cn). The readme file and demo roughly explains how to use the codes. For any problem concerning the codes, please feel free to contact Mr.Feng. 
+ATTN2: This package was developed by Mr.Ji Feng(fengj@lamda.nju.edu.cn). The readme file and demo roughly explains how to use the codes. For any problem concerning the codes, please feel free to contact Mr.Feng.
 """
 import os, os.path as osp
 import numpy as np
@@ -38,20 +38,20 @@ class DataCache(object):
     def keep_in_mem(self, phase, data_name):
         """
         determine if the data for (phase, data_name) should be kept in RAM
-        if config["keep_in_mem"][data_name] exist, then use it, otherwise use the default value of config["keep_in_mem"] 
+        if config["keep_in_mem"][data_name] exist, then use it, otherwise use the default value of config["keep_in_mem"]
         """
         return self.config["keep_in_mem"].get(data_name, self.config["keep_in_mem"]["default"])
 
     def cache_in_disk(self, phase, data_name):
         """
         check data for (phase, data_name) is cached in disk
-        if config["cache_in_disk"][data_name] exist, then use it , otherwise use default value of config["cache_in_disk"]  
+        if config["cache_in_disk"][data_name] exist, then use it , otherwise use default value of config["cache_in_disk"]
         """
         return self.config["cache_in_disk"].get(data_name, self.config["cache_in_disk"]["default"])
 
     def is_exist(self, phase, data_name):
         """
-        check data_name is generated or cashed to disk 
+        check data_name is generated or cashed to disk
         """
         data_mem = self.datas[phase].get(data_name, None)
         if data_mem is not None:
@@ -72,15 +72,15 @@ class DataCache(object):
 
     def get(self, phase, data_name, ignore_no_exist=False):
         """
-        get data according to data_name 
+        get data according to data_name
 
         Arguments
         ---------
         phase (str): train or test
-        data_name (str): name for tops/bottoms  
+        data_name (str): name for tops/bottoms
         ignore_no_exist (bool): if True, when no data found, return None, otherwise raise e
         """
-        assert isinstance(data_name, basestring), "data_name={}, type(data_name)={}".format(data_name, type(data_name))
+        assert isinstance(data_name, str), "data_name={}, type(data_name)={}".format(data_name, type(data_name))
         # return data if data in memory
         data_mem = self.datas[phase].get(data_name, None)
         if data_mem is not None:
@@ -104,7 +104,7 @@ class DataCache(object):
 
     def update(self, phase, data_name, data):
         """
-        update (phase, data_name) data in cache  
+        update (phase, data_name) data in cache
         """
         assert isinstance(data, np.ndarray), "data(type={}) is not a np.ndarray!!!".format(type(data))
         if self.keep_in_mem(phase, data_name):

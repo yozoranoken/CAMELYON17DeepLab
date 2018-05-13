@@ -1,11 +1,11 @@
 # -*- coding:utf-8 -*-
 """
 Description: A python 2.7 implementation of gcForest proposed in [1]. A demo implementation of gcForest library as well as some demo client scripts to demostrate how to use the code. The implementation is flexible enough for modifying the model or
-fit your own datasets. 
+fit your own datasets.
 Reference: [1] Z.-H. Zhou and J. Feng. Deep Forest: Towards an Alternative to Deep Neural Networks. In IJCAI-2017.  (https://arxiv.org/abs/1702.08835v2 )
 Requirements: This package is developed with Python 2.7, please make sure all the demendencies are installed, which is specified in requirements.txt
 ATTN: This package is free for academic usage. You can run it at your own risk. For other purposes, please contact Prof. Zhi-Hua Zhou(zhouzh@lamda.nju.edu.cn)
-ATTN2: This package was developed by Mr.Ji Feng(fengj@lamda.nju.edu.cn). The readme file and demo roughly explains how to use the codes. For any problem concerning the codes, please feel free to contact Mr.Feng. 
+ATTN2: This package was developed by Mr.Ji Feng(fengj@lamda.nju.edu.cn). The readme file and demo roughly explains how to use the codes. For any problem concerning the codes, please feel free to contact Mr.Feng.
 """
 import numpy as np
 #from tqdm import trange
@@ -24,7 +24,7 @@ class FGPoolLayer(BaseLayer):
         super(FGPoolLayer, self).__init__(layer_config, data_cache)
         self.win_x = self.get_value("win_x", None, int, required=True)
         self.win_y = self.get_value("win_y", None, int, required=True)
-        self.pool_method = self.get_value("pool_method", "avg", basestring)
+        self.pool_method = self.get_value("pool_method", "avg", str)
 
     def fit_transform(self, train_config):
         LOGGER.info("[data][{}] bottoms={}, tops={}".format(self.name, self.bottom_names, self.top_names))
@@ -49,8 +49,8 @@ class FGPoolLayer(BaseLayer):
                 #assert w % win_x == 0
                 #nh = int(h / win_y)
                 #nw = int(w / win_x)
-                nh = (h - 1) / win_y + 1
-                nw = (w - 1) / win_x + 1
+                nh = int((h - 1) / win_y + 1)
+                nw = int((w - 1) / win_x + 1)
                 X_pool = np.empty(( n, c, nh, nw), dtype=np.float32)
                 #for k in trange(c, desc='loop channel'):
                 #    for di in trange(nh, desc='loop win_y'):
