@@ -71,7 +71,8 @@ class pNStage(Enum):
 
 def get_pNstage(slide_predictions):
     non_negative_count = sum(1 for pred in slide_predictions
-                             if pred != WSILabels.NEGATIVE)
+                             if pred not in (WSILabels.NEGATIVE,
+                                             WSILabels.ITC))
     if non_negative_count > 0:
         if WSILabels.MACRO in slide_predictions:
             if non_negative_count > 3:
