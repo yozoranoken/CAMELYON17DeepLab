@@ -81,7 +81,7 @@ def get_pNstage(slide_predictions):
                 stage = pNStage.PN1
         elif WSILabels.MICRO in slide_predictions:
             stage = pNStage.PN1_MI
-        else:
+    elif WSILabels.ITC in slide_predictions:
             stage = pNStage.PN0_I_PLUS
     else:
         stage = pNStage.PN0
