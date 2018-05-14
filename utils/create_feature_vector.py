@@ -69,6 +69,7 @@ def collect_arguments():
         type=str,
         choices=(
             'connect_2',
+            'connect_2_no_dilate',
         ),
         default='connect_2',
     )
@@ -100,6 +101,8 @@ class FeatureVectorCreator(ABC):
 
         if cluster_algorithm == 'connect_2':
             self.connect_regions = self.connect_2
+        if cluster_algorithm == 'connect_2_no_dilate':
+            self.connect_regions = self.connect_2_no_dilate
 
     @abstractmethod
     def create(self, softmax, semantic, name, label=None):
@@ -112,6 +115,20 @@ class FeatureVectorCreator(ABC):
 
     @staticmethod
     def connect_2(mask):
+        mask = nd.distance_transform_edt(255 - (mask * 255))
+
+        threshold = 75 / (_RESOLUTION * 2**_HEATMAP_LEVEL * 2)  # 75µm is the
+                                                                # equivalent size
+                                                                # of 5 tumor cells
+        mask = mask < threshold
+        mask = nd.morphology.binary_fill_holes(mask)
+
+        mask = measure.label(mask, connectivity=2)
+
+        return mask
+
+    @staticmethod
+    def connect_2_no_dilate(mask):
         mask = nd.distance_transform_edt(255 - (mask * 255))
 
         threshold = 75 / (_RESOLUTION * 2**_HEATMAP_LEVEL * 2)  # 75µm is the
