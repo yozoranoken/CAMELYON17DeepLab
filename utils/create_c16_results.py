@@ -14,7 +14,7 @@ from skimage import img_as_float
 from skimage.io import imread
 
 
-_LEVEL = 1
+_LEVEL = 5
 _SEMATIC_FILENAME = '*.png'
 
 class IntensityMethod(Enum):
